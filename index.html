@@ -83,27 +83,26 @@
     
     <div class="article-entry" itemprop="articleBody">
       
-        <p>##1.下载 msysgit ，并安装<br><a href="https://git-for-windows.github.io/" target="_blank" rel="external">https://git-for-windows.github.io/</a></p>
-<p>###2.安装Node.js<br>在 Windows 环境下安装 Node.js 非常简单，仅须下载安装文件并执行即可完成安装。<br> 下载地址：<a href="https://nodejs.org/download" target="_blank" rel="external">https://nodejs.org/download</a><br>因为我用的Windows的64位，所以下载地址在这：<br> <a href="https://nodejs.org/dist/v0.12.7/x64/node-v0.12.7-x64.msi" target="_blank" rel="external">https://nodejs.org/dist/v0.12.7/x64/node-v0.12.7-x64.msi</a><br>安装好后，打开cmd，输入下面命令，看下是否正常</p>
+        <h2 id="1-下载_msysgit_，并安装">1.下载 msysgit ，并安装</h2><p><a href="https://git-for-windows.github.io/" target="_blank" rel="external">https://git-for-windows.github.io/</a></p>
+<h3 id="2-安装Node-js">2.安装Node.js</h3><p>在 Windows 环境下安装 Node.js 非常简单，仅须下载安装文件并执行即可完成安装。<br> 下载地址：<a href="https://nodejs.org/download" target="_blank" rel="external">https://nodejs.org/download</a><br>因为我用的Windows的64位，所以下载地址在这：<br> <a href="https://nodejs.org/dist/v0.12.7/x64/node-v0.12.7-x64.msi" target="_blank" rel="external">https://nodejs.org/dist/v0.12.7/x64/node-v0.12.7-x64.msi</a><br>安装好后，打开cmd，输入下面命令，看下是否正常</p>
 <figure class="highlight coffeescript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">node -v </span><br><span class="line"><span class="built_in">npm</span> -v</span><br></pre></td></tr></table></figure>
 <p>正常的话，效果如下，不行就百度下原因吧。 <img src="http://upload-images.jianshu.io/upload_images/265555-44e5b662082437ec?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240" alt="结果图"></p>
-<p>###3.安装hexo<br>利用 npm 命令即可安装。（<strong>先在任意位置点击鼠标右键，选择Git bash</strong>）<br><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">npm <span class="operator"><span class="keyword">install</span> -<span class="keyword">g</span> hexo</span></span><br></pre></td></tr></table></figure></p>
+<h3 id="3-安装hexo">3.安装hexo</h3><p>利用 npm 命令即可安装。（<strong>先在任意位置点击鼠标右键，选择Git bash</strong>）<br><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">npm <span class="operator"><span class="keyword">install</span> -<span class="keyword">g</span> hexo</span></span><br></pre></td></tr></table></figure></p>
 <p>在打印的日志里面，请记下安装的hexo的位置，然后再系统的环境变量PATH里面加多这个库的lib地址；<br>要不然你会遇到hexo command not found .</p>
-<p>###4.创建hexo文件夹<br>安装完成后，在你喜爱的文件夹下（如H:\hexo），执行以下指令(在H:\hexo内点击鼠标右键，选择Git bash)，Hexo 即会自动在目标文件夹建立网站所需要的所有文件。<br><figure class="highlight nginx"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="title">hexo</span> init</span><br></pre></td></tr></table></figure></p>
+<h3 id="4-创建hexo文件夹">4.创建hexo文件夹</h3><p>安装完成后，在你喜爱的文件夹下（如H:\hexo），执行以下指令(在H:\hexo内点击鼠标右键，选择Git bash)，Hexo 即会自动在目标文件夹建立网站所需要的所有文件。<br><figure class="highlight nginx"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="title">hexo</span> init</span><br></pre></td></tr></table></figure></p>
 <p>安装依赖包<br><figure class="highlight cmake"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">npm <span class="keyword">install</span></span><br></pre></td></tr></table></figure></p>
-<p>###本地查看<br>现在我们已经搭建起本地的hexo博客了，执行以下命令(在H:\hexo)，然后到浏览器输入ocalhost:4000看看。<br>hexo generatehexo server</p>
+<h3 id="本地查看">本地查看</h3><p>现在我们已经搭建起本地的hexo博客了，执行以下命令(在H:\hexo)，然后到浏览器输入ocalhost:4000看看。<br>hexo generatehexo server</p>
 <p>好了，至此，本地博客已经搭建起来了，只是本地哦，别人看不到的。下面，我们要部署到Github。<br>Github账号<br>已有账号可以跳过，没有的，请自行注册，很简单，这里就不介绍了。 <img src="http://upload-images.jianshu.io/upload_images/265555-4b3805d7b495b799.png?imageMogr2/auto-#orient/strip%7CimageView2/2/w/1240" alt="这里写图片描述"><br>创建repository<br>在自己Github主页右下角，创建一个 New repository。<br>比如我的Github账号是<code>sanjay</code>，那么我应该创建的repository名字应该是<code>sanjay.github.io</code><br>这个是github官方规定的。用户名和项目名称一直</p>
 <blockquote>
 <p>You must use the <code>username.github.io</code> naming scheme.<br>Content from the <code>master</code> branch will be used to build and publish your GitHub Pages site.<br>You can only use your own account name for a User or Organization Page repository. A repository like <code>joe/bob.github.io</code> will not build a User Pages site.<br>When User Pages are built, they are available at <code>http(s)://&lt;username&gt;.github.io.</code></p>
 </blockquote>
-<p>##部署<br>编辑_config.yml(<code>在H:\hexo下</code>)。<br>你在部署时，要把下面的sanjay都换成你的账号名。</p>
+<h2 id="部署">部署</h2><p>编辑_config.yml(<code>在H:\hexo下</code>)。<br>你在部署时，要把下面的sanjay都换成你的账号名。</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="preprocessor">#这个在最下面的一行</span></span><br><span class="line">  deploy: type: git <span class="preprocessor">#最新版<span class="number">3.</span>X把这个github缩写成git了,这句注视可以不复制的. </span></span><br><span class="line">    repository: https:<span class="comment">//github.com/Sanjay/Sanjay.github.io.git</span></span><br><span class="line">    branch: master</span><br></pre></td></tr></table></figure>
-<p> ###执行下列指令即可完成部署。<br><figure class="highlight nginx"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="title">hexo</span> g <span class="comment">#新版本支持的缩写，可以看最后面的tips了解情况 </span></span><br><span class="line">hexo d</span><br></pre></td></tr></table></figure></p>
+<h3 id="执行下列指令即可完成部署。">执行下列指令即可完成部署。</h3><figure class="highlight nginx"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="title">hexo</span> g <span class="comment">#新版本支持的缩写，可以看最后面的tips了解情况 </span></span><br><span class="line">hexo d</span><br></pre></td></tr></table></figure>
 <p>注意：有些新用户需要设置 ssh，否则上述命令会失败。ssh 的介绍和设置方法请看官方教程，不用担心，很简单。连接： <a href="https://help.github.com/articles/generating-ssh-keys/" target="_blank" rel="external">https://help.github.com/articles/generating-ssh-keys/</a></p>
 <hr>
 <p>记住：<br>每次修改本地文件后，需要hexo generate才能保存。每次使用命令时，都要在H:\hexo目录下。 Okay,我们的博客已经完全搭建起来了，在浏览器访问Sanjay.github.io就能看到你的成就了！</p>
-<p>##bugs</p>
-<ol>
+<h2 id="bugs">bugs</h2><ol>
 <li><p>有网友反应右键菜单中没有git bash选项，可以进入开始菜单找到git bash，然后通过cd进入相应目录执行命令。</p>
 </li>
 <li><p>在github部署完成之后，马上访问可能出现404错误，这是正常的，（最多）等待十分钟左右就可以访问了。如果还不行，那很可能是 github 发送给你的验证邮件你没有打开看，据多方反映，验证后就没问题了。</p>
@@ -115,12 +114,12 @@
 <li><p>安装 hexo 时卡在那儿不动，很可能是网络不给力，能全局 break wall 就好了。 遇到什么其他的问题，不妨删除.deploy 和db.json 再重新生成试一试。</p>
 </li>
 </ol>
-<p>##tips<br>hexo现在支持更加简单的命令格式了，<br>比如：<br><figure class="highlight stata"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">hexo <span class="keyword">g</span> == hexo <span class="keyword">generate</span></span><br><span class="line"> hexo <span class="keyword">d</span> == hexo deploy </span><br><span class="line">hexo s == hexo server </span><br><span class="line">hexo <span class="keyword">n</span> == hexo new</span><br></pre></td></tr></table></figure></p>
+<h2 id="tips">tips</h2><p>hexo现在支持更加简单的命令格式了，<br>比如：<br><figure class="highlight stata"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">hexo <span class="keyword">g</span> == hexo <span class="keyword">generate</span></span><br><span class="line"> hexo <span class="keyword">d</span> == hexo deploy </span><br><span class="line">hexo s == hexo server </span><br><span class="line">hexo <span class="keyword">n</span> == hexo new</span><br></pre></td></tr></table></figure></p>
 
       
     </div>
     <footer class="article-footer">
-      <a data-url="http://yoursite.com/2015/08/21/如何用hexo挂博客到git上去/" data-id="cidlfuh970001b8i8nttww4hr" class="article-share-link">Share</a>
+      <a data-url="http://yoursite.com/2015/08/21/如何用hexo挂博客到git上去/" data-id="cidlg13lp0001cci8rvxb10xy" class="article-share-link">Share</a>
       
       
     </footer>
@@ -165,7 +164,7 @@
       
     </div>
     <footer class="article-footer">
-      <a data-url="http://yoursite.com/2015/08/20/hello-world/" data-id="cidlfuh8k0000b8i8vwf497bk" class="article-share-link">Share</a>
+      <a data-url="http://yoursite.com/2015/08/20/hello-world/" data-id="cidlg13l20000cci8gu96x5py" class="article-share-link">Share</a>
       
       
     </footer>
