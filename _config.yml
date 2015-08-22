@@ -3,11 +3,12 @@
 ## Source: https://github.com/hexojs/hexo/
 
 # Site
-title: Hexo
-subtitle:
-description:
-author: John Doe
-language:
+title: SanjayF's blog  
+subtitle: 生命不息，装逼不止
+description: SanjayF's github blog 
+author: SanjayF
+language: en
+avatar: /images/myAvatar.jpg
 timezone:
 
 # URL
@@ -63,7 +64,7 @@ pagination_dir: page
 # Extensions
 ## Plugins: http://hexo.io/plugins/
 ## Themes: http://hexo.io/themes/
-theme: landscape
+theme: next
 
 # Deployment
 ## Docs: http://hexo.io/docs/deployment.html
@@ -71,3 +72,16 @@ deploy:
   type: git
   repository: https://github.com/Sanjay-F/SanjayF.github.io
   branch: master
+
+
+#use to set the side bar 
+index_generator:
+  per_page: 5
+
+archive_generator:
+  per_page: 20
+  yearly: true
+  monthly: true
+
+tag_generator:
+  per_page: 10
