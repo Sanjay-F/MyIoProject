@@ -3,6 +3,8 @@
 
 {% block title %}
   {% set page_title_suffix = ' | ' + config.title %}
+   
+
 
   {% if page.type === "categories" %}
     {{ __('title.category') + page_title_suffix }}

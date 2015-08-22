@@ -5,11 +5,13 @@
 # Site
 title: SanjayF's blog  
 subtitle: 生命不息，装逼不止
-description: SanjayF's github blog 
+description: SanjayF's  github  blog 
 author: SanjayF
 language: en
 avatar: /images/myAvatar.jpg
 timezone:
+since: 2015
+
 
 # URL
 ## If your site is put in a subdirectory, set url as 'http://yoursite.com/child' and root as '/child/'
@@ -85,3 +87,16 @@ archive_generator:
 
 tag_generator:
   per_page: 10
+
+# duoshuo comment 
+duoshuo_shortname: sanjayf
+# 多说热评文章 true 或者 false
+duoshuo_hotartical: true
+
+# Swiftype Search Key
+swiftype_key: qy4B6rmn6sA3Kyx-8Ysw
+
+#bai du analytics 
+baidu_analytics: ceb5544cc01478679a4a6bc9f79ca0eb
+
+
