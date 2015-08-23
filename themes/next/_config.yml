@@ -103,5 +103,5 @@ tag_generator:
   per_page: 10
 
 
-  # JiaThis 分享服务
-jiathis: true
+
+duoshuo_share: true

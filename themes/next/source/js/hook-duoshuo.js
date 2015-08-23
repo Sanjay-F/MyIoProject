@@ -25,9 +25,9 @@ function hook_duoshuo_templates() {
 			is_admin = '';
 		}
 		var agent = e.post.agent;
-		if (agent && /^Mozilla/.test(agent)) {
-			rs = rs.replace(/<\/div><p>/, is_admin + show_ua(agent) + '</div><p>')
-		};
+		// if (agent && /^Mozilla/.test(agent)) {
+		// 	rs = rs.replace(/<\/div><p>/, is_admin + show_ua(agent) + '</div><p>')
+		// };
 		return rs;
 	}
 }
