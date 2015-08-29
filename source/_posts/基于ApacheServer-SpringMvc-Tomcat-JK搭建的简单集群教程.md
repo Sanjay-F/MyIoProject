@@ -1,6 +1,6 @@
 title: 基于ApacheServer+SpringMvc+Tomcat+JK搭建的简单集群教程
 date: 2015-08-29 15:16:19
-tags:
+tags: [tomcat,集群,Apache,SpringMvc]
 ---
 
 # 基础知识
