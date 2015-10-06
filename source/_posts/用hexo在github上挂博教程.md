@@ -103,22 +103,22 @@ Okay,我们的博客已经完全搭建起来了，在浏览器访问Sanjay.githu
  1. **同步问题**；我们可以看到，我们成功的挂博客到了github上去了，但是，需要注意的是，我们的项目是用hexo来生成，然后部署到github上面去的，这个带来的问题就是，部署的内容和我们本地的项目目录里面的内容不一样，**所以**，如果我们换一台电脑写，想从github上面同回来，再继续写，那是不可能的，github上面的是hexo编译过后的内容，所以我们最好也在github上面新建一个项目，把我们的整个项目也同步上去，这样就可以在不同电脑上写文章啦。
  2.  同步的配置问题；我们想用` git pull`来同步项目的时候，我们会遇到
  
-```
-fatal: No remote repository specified.  Please, specify either a URL or a  
-remote name from which new revisions should be fetched.  
-```
+	```
+	fatal: No remote repository specified.  Please, specify either a URL or a  
+	remote name from which new revisions should be fetched.  
+	```
 这个需要我们配置下从哪里取回项目，打开我们的h:\hexo目录里面的`.git`文件（这是一个隐藏文件）。然后修改里面的config文件，在屁股哪里加多这个,`注意`,请把下面的两条url改成你自己在github上对应的地址，原因我已经在上面一条说明了，我们需要同步这个项目，好换台电脑后也可以继续写。
 
-```
-[remote "origin"]  
-        url = https://github.com/sanjay/xxx.git  #换成你自己的地址
-        fetch = +refs/heads/*:refs/remotes/origin/*  
-        pushurl = https://github.com/sanjay/xxx.git #换成你自己的地址 
-[branch "master"]  
-        remote = origin  
-        merge = refs/heads/master  
-
-```
+	```
+	[remote "origin"]  
+	        url = https://github.com/sanjay/xxx.git  #换成你自己的地址
+	        fetch = +refs/heads/*:refs/remotes/origin/*  
+	        pushurl = https://github.com/sanjay/xxx.git #换成你自己的地址 
+	[branch "master"]  
+	        remote = origin  
+	        merge = refs/heads/master  
+	
+	```
  
 
 # bugs
@@ -135,6 +135,17 @@ remote name from which new revisions should be fetched.
  5. 安装 hexo 时卡在那儿不动，很可能是网络不给力，能全局 break wall 就好了。
 遇到什么其他的问题，不妨删除.deploy 和db.json 再重新生成试一试。
 
+ 6. 端口被占用
+
+ 
+		 $ hexo s
+		INFO  Hexo is running at http://0.0.0.0:4000/. Press Ctrl+C to stop.
+
+    提示这句话，然后打开游览器，如果输入localhost:4000或者http://0.0.0.0:4000/这两个都没反应，很可能是端口被别的程序霸占了，不知道为什么这个不会报错误信息出来，这时候你可以去关掉端口霸占的进程，或者声明新的端口给他用，下面这条
+
+		hexo s -p 3829
+
+   
 # tips
 hexo现在支持更加简单的命令格式了，比如：
 hexo g == hexo generate
