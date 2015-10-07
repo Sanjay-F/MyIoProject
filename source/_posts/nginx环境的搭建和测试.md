@@ -11,15 +11,18 @@ Tomcat官网：http://tomcat.apache.org/
 复制多一分，分别叫tomcat1和tomcat2
 打开tomcat2里面的`conf/server.xml`文件，然后编辑如下
 
+
+注意：
+要这么修改，是因为这两个都是跑在我自己的电脑上啊，如果你的是在不同的服务器下，可以不用的.
+
 ### 第一处端口修改：
 
 	<!--  修改port端口为8002，另外tomcat的配置不动-->  
-	<Server port="8002" shutdown="SHUTDOWN">  
- 
+	<Server port="8002" shutdown="SHUTDOWN">   
 注：端口随意，不重复就好，只是为了方便区别，我把这个叫8002；
 
-###   第二处端口修改：
 
+###   第二处端口修改：
 	<!-- port="8082" tomcat监听端口-->  
 	<Connector port="8082" protocol="HTTP/1.1"   
 	               connectionTimeout="20000"   
@@ -27,28 +30,23 @@ Tomcat官网：http://tomcat.apache.org/
   注意，我这里把`redirectPort`修改了.
    
  
-###   第三处端口修改：
-
-  
+<!-- ###   第三处端口修改：  
 	Engine元素增加 jvmRoute  属性：
 	<Engine name="Catalina" defaultHost="localhost" jvmRoute="tomcat2">  
-
-注：另外一个tomcat1的server.xml文件，请在这个位置请加多`jvmRoute="tomcat1"`
+注：另外一个tomcat1的server.xml文件，请在这个位置请加多`jvmRoute="tomcat1"` -->
 	 
 <!--more-->
 
 # 安装nginx
-   下载地址在：`http://nginx.org/en/download.html`，建议下载 Stable version版，安装在桌面叫`nginx`的文件夹内。
+   下载地址在：`http://nginx.org/en/download.html`，建议下载 Stable version版(我下载的是V1.8.0，用1.9.5好像有点小问题)安装在桌面叫`nginx`的文件夹内。
    
-打开`nginx.conf`文件，对其进行配置，在屁股加多这个。
+打开`nginx.conf`文件，对其进行配置，大慨在在中间点的地方，加入upstram，然后在server模块内加多一句话`proxy_pass http://tomcat;`。如下
 	
 	upstream tomcat{  # 负载均衡站点的名称为tomcat，可以自己取
-	
 	   # ip_hash;  # 可选，根据来源IP方式选择web服务器，
-	               ＃省略的话按默认的轮循方式选择web服务器
-	               
+	               #省略的话按默认的轮循方式选择web服务器
 	    server localhost:8080;       # web服务器的IP地址及tomcat发布端口
-	    server 127.0.0.1:8081;       #如果不是本地单机，该下地址和端口。
+	    server localhost:8082;       #如果不是本地单机，修改下地址和端口。
 	}
 	        
 	server {
@@ -58,7 +56,9 @@ Tomcat官网：http://tomcat.apache.org/
 	     location / {
 	        root   html;
 	        index  index.html index.htm;
-	        proxy_pass http://tomcat;      # 负载均衡指向的发布服务tomcat
+			
+			#添加多下面这句
+	        proxy_pass http://tomcat;      # 负载均衡指向的发布服务tomcat,这个要和上面的upstream的tomcat这个保持一致
 	     }	  
 	} 
 
@@ -96,7 +96,7 @@ nginx 的 upstream目前支持`4` 种方式的分配
     
 上面我们算配置好了，利用intellij创建多两个模版springMvc项目，分别叫tomcat1Test和tomcat2Test。
 
-他们配置他们的Application Server为我们一开始弄好的tomcat1和tomcat2.
+配置他们的Application Server为我们一开始弄好的tomcat1和tomcat2.
 一个简单的controller。
 	
 	@Controller
@@ -117,6 +117,6 @@ nginx 的 upstream目前支持`4` 种方式的分配
 #后记
  
  至此nginx+tomcat负载均衡配置结束，关于tomcat Session的问题通常是采用memcached，或者采用nginx_upstream_jvm_route ，他是一个 Nginx 的扩展模块，用来实现基于 Cookie 的 Session Sticky 的功能。如果tomcat过多(>=5台)，不建议session同步，server间相互同步session很耗资源，高并发环境容易引起Session风暴。特别是当系统崩溃重现恢复时候，简直可以把系统卡死。
-   所以请根据自己应用情况合理采纳session解决方案。例如建一个集群，保存session和一些别的缓存等。
+ 所以请根据自己应用情况合理采纳session解决方案。例如建一个集群，保存session和一些别的缓存等。
  
 

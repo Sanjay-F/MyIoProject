@@ -85,6 +85,14 @@ hexo init
 	  repository: https://github.com/Sanjay/Sanjay.github.io.git
 	  branch: master
 ```
+
+**注意：**
+这里使用的是http的地址，这导致每次部署的时候都要填写一次账号和密码，有点麻烦。
+所以建议使用ssh的地址，下面就有建立SSH的教程，保存好key后，以后我们可以先建立ssh，然后再部署。
+
+	eval $(ssh-agent -s) #我使用的是Git-Bash建立ssh
+	hexo d
+
   
 据说最新版本的hexo 中，这里的 type 要写成 git，而不是 github。
 执行下列指令即可完成部署。
