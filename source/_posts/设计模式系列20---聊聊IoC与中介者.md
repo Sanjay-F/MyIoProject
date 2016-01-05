@@ -5,13 +5,14 @@ categories: android
 
 ------
 
-有一个叫`控制反转`(Inversion of Control，缩写IoC ) 的东西 ，这个对于计算机的人应该不陌生的概念，如果你也知道那个`Bob大叔`的话。
+有一个叫`控制反转`(Inversion of Control，缩写IoC ) 的东西 ，这个对于计算机的人应该是不陌生的概念，就算你不知道那个`Bob大叔`。
 
-这个概念简单的活就是下面这样
+这个概念简单说的是下面这样的事情
+
 ![enter image description here](http://7xl9zd.com1.z0.glb.clouddn.com/%E4%B9%B1%E9%BA%BB_%E8%80%A6%E5%90%88%E5%85%B3%E7%B3%BB.JPG)
 
-原本各个类之间的关系乱起八糟的，看起来头都晕了。
-他们就像齿轮一样，一环咬一环的。
+原本各个类之间的关系乱七八糟的，看起来头都晕了。
+他们就像齿轮一样，相互咬合依赖。
 
 ![enter image description here](http://7xl9zd.com1.z0.glb.clouddn.com/%E9%BD%BF%E8%BD%AE_%E8%80%A6%E5%90%88%E5%85%B3%E7%B3%BB_full.jpg)
 如果有一个出问题，那可能整个就崩溃了。
