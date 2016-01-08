@@ -51,7 +51,8 @@ Ormlite版本：V4.48
             return doCreateTable(connectionSource, tableInfo, ifNotExists);
         }
     }
-他会先去创建dao，同时这个dao是用`容器单例`的模式来做的，所以后面我们继续调用这个Dao的时候，可以快速的获得，得到Dao后，他去创建`Table`，相关代码如下
+他会先去创建dao，同时这个dao是用`容器单例`的模式来做的，所以后面我们继续调用这个Dao的时候，可以快速的获得， 
+继续，在得到Dao后，他去创建`Table`，相关代码如下
 
 	 public static synchronized <D extends Dao<T, ?>, T> D createDao(
 					 ConnectionSource connectionSource, Class<T> clazz) throws SQLException {
@@ -75,6 +76,29 @@ Ormlite版本：V4.48
         Dao dao = (Dao)classMap.get(key);
         return dao == null?null:dao;
     }
+
+**注意** **注意** **注意**
+说到这里，需要重点强调下！
+有些人为了省去在自己的`ormliteHelper`里面写各种的getXXxDao，用下面的方法：
+例如那个[鸿大神的Android 快速开发系列 ORMLite 框架最佳实践](http://blog.csdn.net/lmj623565791/article/details/39122981) 
+
+	public synchronized Dao getDao(Class clazz) throws SQLException  
+	    {  
+	        Dao dao = null;  
+	        String className = clazz.getSimpleName();  
+	  
+	        if (daos.containsKey(className))  
+	        {  
+	            dao = daos.get(className);  
+	        }  
+	        if (dao == null)  
+	        {  
+	            dao = super.getDao(clazz);  
+	            daos.put(className, dao);  
+	        }  
+	        return dao;  
+	    }  
+显然是没必要的，因为我们看到内部实现已经写了，用一个`HashMap`去保存了，但不得不说一般人不看源代码，哪里知道这事！他的最佳实践写得还有很多可以优化的地方，下次有空再把自己写的贴上来！最少要把各种操作给封装以下，免得下次要换掉`ORMLite`怎办？
 
 创建表：
 
