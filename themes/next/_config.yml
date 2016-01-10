@@ -8,7 +8,7 @@ menu:
   #commonweal: /404.html
 
 # Place your favicon.ico to /source directory.
-favicon: /favicon.ico
+favicon: /fav.ico
 
 # Set default keywords (Use a comma to separate)
 keywords: "Hexo,next"
@@ -105,3 +105,6 @@ tag_generator:
 
 
 duoshuo_share: true
+
+baidu_analytics:  18f6d52faaf2600c05e8045494b5935e
+ 
