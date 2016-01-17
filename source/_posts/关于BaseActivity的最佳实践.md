@@ -150,6 +150,35 @@ categories: android
 在我的demo里面写了一些实际可能会用到的内容出来供大家参考。
 基本可以快速的移植到实际的项目开发中去了。
 
+## 关于监听各个Activity的生命周期
+
+在开发中，还看到不少程序写的时候，在这个`BaseActivity`里面加多一个注册本Activity为活跃的状态的信息的工作。就像下面这样的模板
+
+
+	@Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState); 
+        setContentView(R.layout.activity_base);
+       	MyApplication.getApp().addActivity(this);
+
+    } 
+    
+	@Override
+    protected void onDestroy() {
+        super.onDestroy();
+        LifesenseApplication.getApp().removeActivity(this);
+    }
+	    
+ 
+	
+对这部分，我是建议分开出来到另外一个类来做，去实现`Application.ActivityLifecycleCallbacks`
+接口的方式，估计可能对一些人来说都不知道这个玩意的存在，我在我的demo里面的M有Application里面有样式，可以参考下，当然也可以直接实际的拿去使用的。
+
+	public class Foreground implements Application.ActivityLifecycleCallbacks {
+
+	}
+ 
+
 # Demo
 写了一个简单的demo，下载的地址在[BaseActivityBestPractices](https://github.com/Sanjay-F/BaseActivityBestPractices)
 
