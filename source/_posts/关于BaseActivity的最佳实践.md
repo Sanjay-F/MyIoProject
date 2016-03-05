@@ -103,7 +103,7 @@ categories: android
 	            contentView = (LinearLayout) findViewById(R.id.layout_center);
 	             contentView.removeAllViews();
 	
-	        } else if (layoutResID != R.layout.activity_main) {
+	        } else if (layoutResID != R.layout.activity_base) {
 	            View addView = LayoutInflater.from(this).inflate(layoutResID, null);
 	            contentView.addView(addView);
 	            setActionBar(); 
