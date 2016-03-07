@@ -1,4 +1,4 @@
- 
+﻿ 
 title: 源码探索系列24---那把黄油刀ButterKnife
 date: 2016-03-03 17:45
 tags: [android,源码,ButterKnife]
@@ -785,7 +785,12 @@ categories: android
 类似的还有`Dagger2`，我们看到市面上的注入还有xUtil这种，但他是每次都反射，效率和前者的不是一个等级上的。 写到现在，好像常见的第三方框架不少是Square开源的。不得不说这家公司还真的挺正的。
 Retrofoi + okHttp + leakcanary +okio  +picasso +otto + dagger等等！
 
+当然，我们知道他的原理后，就可以考虑做点拓展的内容啊，例如
+是否可以做一个和**GreenDao**类似的框架，帮助我们生成操作数据的代码呢？
+或者像[AndroidAnnotations](http://androidannotations.org/)那样，我们自己来拓展支持多别的注解，例如支持`@UiThread`，`@Background`，`@SystemService`， `@App`，`@NoTitle`，`@Fullscreen`等等注解呢？
+
+---
 
 我的翻译工作...一个礼拜过去，才翻译了第一章的一节，就几千个字。
-我这种新手还是太`TOO YOUNG,TOO SIMPLE`，居然夸大海口。哈哈哈！！！
+我这种新手还是太`TOO Yang!,TOO SIMPLE`，居然夸大海口。哈哈哈！！！
 我就是跪着也不太可能三个礼拜翻译完了！
