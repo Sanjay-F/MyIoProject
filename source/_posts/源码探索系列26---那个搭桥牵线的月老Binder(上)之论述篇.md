@@ -1,6 +1,6 @@
 title: 源码探索系列26---那个搭桥牵线的月老Binder(上)之论述篇
 date: 2016-03-07 14:47:46
-tags: [android,Binder]
+tags: [android,源码,Binder]
 categories: android
 
 ------------------------------------------
@@ -10,8 +10,7 @@ categories: android
 Binder，大名鼎鼎，有了他，我们才能和另外一个陌生人（进程）发生沟通啊.
 那么这个搭桥牵绳的中间人---月老Binder，到底是怎么做到的呢？
 我们先来简单的了解下，然后再深入的探索。
-篇幅会比较长，所以分了上下篇，上篇简述基本的原理，下篇尝试从源码的角度来理解。 
-
+篇幅会比较长，所以分了上中下篇，上篇简述基本的原理，下篇尝试从java层和Native层源码的角度来理解。  
 好了，那么我们就开始说下这个月老Binder的故事吧！
 
 <!--more--> 
@@ -36,8 +35,8 @@ API:23
 > Linux下，用户空间访问内核空间的唯一方式就是系统调用；	
  Linux Kernel 掌管所有，像这种小事人家肯定可以做到。	
   
-Linux 内核原生支持的通信机制有Socket，System V，管道等。不过这些都满足不了谷歌对**性能和安全**的需求，因此他们自己弄了个 **Binder驱动模块** ，并用[可加载核心模块技术（Loadable Kernel Module，LKM）  ](https://zh.wikipedia.org/wiki/%E5%8F%AF%E8%BC%89%E5%85%A5%E6%A0%B8%E5%BF%83%E6%A8%A1%E7%B5%84)把这个不是Linux原生的给安上，因为在运行时它会被连接到内核，运行在内核空间。
-这样有了这个 Binder驱动内应，我们安卓就可以根据需要，定制接口，完成通讯。
+Linux 内核原生支持的通信机制有Socket，System V，管道等。不过这些都满足不了谷歌对**性能和安全**的需求，因此他们自己弄了这个Binder机制，由于需要运行在内核，所以写了个**Binder驱动模块**并用[可加载核心模块技术（Loadable Kernel Module，LKM）  ](https://zh.wikipedia.org/wiki/%E5%8F%AF%E8%BC%89%E5%85%A5%E6%A0%B8%E5%BF%83%E6%A8%A1%E7%B5%84)把这个不是Linux原生的给安上，因为在运行时它会被连接到内核，运行在内核空间。这样有了这个 Binder驱动内应，我们安卓就可以根据需要，定制接口，完成通讯。
+（有驱动，就有对应的硬件咯？有的，不过是一个虚拟的硬件，就像我们用Ultraiso/Nero这些刻录软件一样会有一个虚拟的光驱。 这个虚拟的binder硬件在“/dev/binder”）
 
 大致像下图:
 
@@ -144,9 +143,9 @@ Binder框架定义了四个角色：**Server**，**Client**，**ServiceManager**
 主要是告诉SM，在我这个进程，有能执行一系列方法（beMyGirlFriend）的对象（IDemoAidlInterface）的信息。而SM自己内部会维护一张表格，保存这些信息，供以后查询用。
 2. 我们的Client同SM查询
    我们需要找那个刚注册的进程对象（RemoteService）；但这里有一个细节，我们的请求在经过Binder驱动时候，他会做一些处理。它并没给Client进程返回一个真正的对象，而是返回一个代理对象（ProxyObjec），虽然这个代理对象具有真实对象的所有方法，但它是不干活的，他只是保存请求数据，然后再交给实际干活的，由他去执行。(这里返回的IDemoAidlInterface就是这样啦)
-   
-      IDemoAidlInterface demoAidlInterface = IDemoAidlInterface.Stub.
-											            asInterface(service);
+	   
+	      IDemoAidlInterface demoAidlInterface = IDemoAidlInterface.Stub.
+												            asInterface(service);											            
 虽然我们知道是假的，是一个代理的ProxyObject，但Client不知道，反正它关心的还是这次调用能不能做到自己要的就好了。
 
 3. 调用方法
@@ -311,6 +310,21 @@ Binder驱动会对具有跨进程传递能力的对象做特殊处理：自动�
 
 
 > 面向对象思想的引入将进程间通信转化为通过对某个Binder对象的引用调用该对象的方法，而其独特之处在于Binder对象是一个可以跨进程引用的对象，它的实体（本地对象）位于一个进程中，而它的引用（代理对象）却遍布于系统的各个进程之中。最诱人的是，这个引用和java里引用一样既可以是强类型，也可以是弱类型，而且可以从一个进程传给其它进程，让大家都能访问同一Server，就象将一个对象或引用赋值给另一个引用一样。Binder模糊了进程边界，淡化了进程间通信过程，整个系统仿佛运行于同一个面向对象的程序之中。形形色色的Binder对象以及星罗棋布的引用仿佛粘接各个应用程序的胶水，这也是Binder在英文里的原意。也是为何我起它叫搭桥牵线的月老的意思。
+ 
+
+## Service Manager
+
+ 在前面的讨论中，我们对SM的描述都是一笔带过的，
+
+现在在结尾来说下他，其实在我们建立通讯，让我们的Server向SM注册前，SM本身也是要建立的 。
+首先有**一个进程**向驱动提出**申请为SM**；驱动**同意**之后，SM进程负责管理Service（注意这里是Service而不是Server，因为如果通信过程反过来的话，那么原来的客户端Client也会成为服务端Server）。
+
+那么Service Manager是如何成为一个守护进程的？ 即Service Manager是如何告知Binder驱动程序它是Binder机制的上下文管理者呢。
+
+欢迎查看老罗的这篇文章
+[浅谈Service Manager成为Android进程间通信（IPC）机制Binder守护进程之路](http://blog.csdn.net/luoshengyang/article/details/6621566) 
+(¬_¬)
+ 
 
  
 ### 深入理解Java层的Binder
@@ -331,27 +345,10 @@ BinderProxy类是Binder类的一个内部类，它代表远程进程的Binder对
 这个类继承了Binder, 说明它是一个Binder本地对象，它实现了IInterface接口，表明它具有远程Server承诺给Client的能力；Stub是一个抽象类，具体的IInterface的相关实现需要我们手动完成，这里使用了**策略模式**。
 
 
-# Service Manager
-
- 在前面的讨论中，我们对SM的描述都是一笔带过的，
-
-现在在结尾来说下他，其实在我们建立通讯，让我们的Server向SM注册前，SM本身也是要建立的 。
-首先有**一个进程**向驱动提出**申请为SM**；驱动**同意**之后，SM进程负责管理Service（注意这里是Service而不是Server，因为如果通信过程反过来的话，那么原来的客户端Client也会成为服务端Server）。
-
-那么Service Manager是如何成为一个守护进程的？ 即Service Manager是如何告知Binder驱动程序它是Binder机制的上下文管理者呢。
-
-欢迎查看老罗的这篇文章
-[浅谈Service Manager成为Android进程间通信（IPC）机制Binder守护进程之路](http://blog.csdn.net/luoshengyang/article/details/6621566) 
-(¬_¬)
- 
-
-
 # 后记
 
 关于binder的文章已经很多，很全了，完全没必要多我这一篇。
-还写下来，只是自己尝试总结下，加深理解。通篇写下来，发现还是有不少自己不清楚的地方，需要自己加强的。写完这个Binder还有打算写的Hook机制，差不多可以结束中篇了。
-下篇到底写点什么，我心里也没底。哈哈
-
+还写下来，只是自己尝试总结下，加深理解。通篇写下来，发现还是有不少自己不清楚的地方，需要自己加强的。有种武侠小说中提到的一句话：**“  油尽灯枯还强行谷催 ”**。硬着臉皮寫這麼高難度的文章。写完这个Binder还有打算写的Hook机制，嗯，强装到底...
 这个[google canvas](https://docs.google.com/drawings)还真不错。用起来比PPT作图好用！
 而且是页面版，不用安装，就是要翻墙。在这里推荐下
 
@@ -359,6 +356,7 @@ BinderProxy类是Binder类的一个内部类，它代表远程进程的Binder对
 
 # 参考资料
 
+1. 《深入理解Android》邓凡平
 1. [Android进程间通信（IPC）机制Binder简要介绍和学习计划](http://blog.csdn.net/luoshengyang/article/details/6618363) ，老罗哥的一篇文章
 2.  [Android Bander设计与实现 - 设计篇](http://blog.csdn.net/universus/article/details/6211589)，这哥们不知何许人也，没写几篇文章，不过一篇永流传啊。
 3.   [Wiki的进程隔离介绍](https://zh.wikipedia.org/wiki/%E8%BF%9B%E7%A8%8B%E9%9A%94%E7%A6%BB)  
