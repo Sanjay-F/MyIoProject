@@ -1,6 +1,7 @@
+
 title: 源码探索系列25---救急灭火的消防员之HotFix
 date: 2016-03-05 23:33:46
-tags: [android,HotFix]
+tags: [android,源码,HotFix]
 categories: android
 
 ------------------------------------------
@@ -243,8 +244,8 @@ categories: android
 ## AndFix
 版本： c68d981  
 
-简述： 同样是方法的hook，AndFix不像Dexposed从Method入手，而是以**Field**为切入点。
-我个人还是挺抵触为了兼容Eclipse之类的结构目录...在gradle里面做重定向的，弄得结构和AS默认的不一样的。如果可以类似的项目都不想看下去。AS本身也已支持多种不同的目录树方式了。吐槽完毕，我们还是看下吧
+简述： 同样是方法的hook，AndFix不像Dexposed从Method入手，而是以**Field**为切入点。把方法改为native的，再在底层Hook替换。 
+
 
 ### 起航
 根据官方介绍的`Load patch`，我们下`patchManager.loadPatch()`的内容
@@ -460,7 +461,103 @@ categories: android
 		}
 	}
 
-他还根据系统的版本的不同，分了6.0，5.1版和5.0版。
+我们先挑个dalvik的来看下
+
+	extern void __attribute__ ((visibility ("hidden"))) dalvik_replaceMethod(
+        JNIEnv *env, jobject src, jobject dest) {
+        
+	    jobject clazz = env->CallObjectMethod(dest, jClassMethod);
+	    ClassObject *clz = (ClassObject *) dvmDecodeIndirectRef_fnPtr(
+	            dvmThreadSelf_fnPtr(), clazz);
+	            
+	    clz->status = CLASS_INITIALIZED;
+	    //我们要替换的有bug的方法。
+	    Method *meth = (Method *) env->FromReflectedMethod(src);
+	    
+	    // 我们的新的解决方法
+	    Method *target = (Method *) env->FromReflectedMethod(dest);
+	    LOGD("dalvikMethod: %s", meth->name);
+	
+	    meth->jniArgInfo = 0x80000000; 
+	    meth->accessFlags |= ACC_NATIVE;//修改方法为native方法！！
+	
+	    int argsSize = dvmComputeMethodArgsSize_fnPtr(meth);
+	    if (!dvmIsStaticMethod(meth))
+	        argsSize++;
+	    meth->registersSize = meth->insSize = argsSize;
+	    meth->insns = (void *) target;//保存新的方法到insnn
+	    meth->nativeFunc = dalvik_dispatcher;
+	    //绑定桥接函数，java方法的跳转函数
+	}
+
+
+	static void dalvik_dispatcher(const u4 *args, jvalue *pResult,
+                              const Method *method, void *self) {
+ 
+		  ...
+	  
+	    Method *meth = (Method *) method->insns;
+	    meth->accessFlags = meth->accessFlags | ACC_PUBLIC;
+ 
+		 ...	
+		 
+	    if (!dvmIsStaticMethod(meth)) {
+	        Object *thisObj = (Object *) args[0];
+	        ClassObject *tmp = thisObj->clazz;
+	        thisObj->clazz = meth->clazz;
+	        argArray = boxMethodArgs(meth, args + 1);
+	        if (dvmCheckException_fnPtr(self))
+	            goto bail;  //<-- 咦，我们看到了goto！
+	
+	        dvmCallMethod_fnPtr(self, (Method *) jInvokeMethod,	        
+	                            dvmCreateReflectMethodObject_fnPtr(meth), &result,
+	                             thisObj,argArray);
+	
+	        thisObj->clazz = tmp;
+	    } else {
+	        argArray = boxMethodArgs(meth, args);
+	        if (dvmCheckException_fnPtr(self))
+	            goto bail;
+	
+	        dvmCallMethod_fnPtr(self, (Method *) jInvokeMethod,
+	                            dvmCreateReflectMethodObject_fnPtr(meth), &result, NULL,
+	                            argArray);
+	    }
+	    
+	    if (dvmCheckException_fnPtr(self)) {
+	        Object *excep = dvmGetException_fnPtr(self);
+	        jni_env->Throw((jthrowable) excep);
+	        goto bail;
+	    }
+	
+	    ...
+	
+	    bail:
+	    dvmReleaseTrackedAlloc_fnPtr((Object *) argArray, self);
+	}
+
+ 
+	extern jboolean __attribute__ ((visibility ("hidden"))) dalvik_setup(
+        JNIEnv *env, int apilevel) {
+    jni_env = env;
+    void *dvm_hand = dlopen("libdvm.so", RTLD_NOW);
+    if (dvm_hand) {
+        ...
+        dvmCallMethod_fnPtr = dvm_dlsym(dvm_hand,apilevel>10?
+				"_Z13dvmCallMethodP6ThreadPK6MethodP6ObjectP6JValuez" :
+				"dvmCallMethod");
+        if (!dvmCallMethod_fnPtr) {
+            throwNPE(env, "dvmCallMethod_fnPtr");
+            return JNI_FALSE;
+        }
+      ...
+
+
+我们看到，它通过`dvmCallMethod_fnPtr`来调用`libdvm.so`中的`dvmCallMethod()`来加载替换后的新方法，从而替换方法。 
+至此，通过dalvik_dispatcher这个跳转函数完成最后的替换工作，到这里就完成了两个方法的替换。
+
+	
+对于art，他还根据系统的版本的不同，分了6.0，5.1版和5.0版。
 	
 	extern void __attribute__ ((visibility ("hidden"))) art_replaceMethod(
 			JNIEnv* env, jobject src, jobject dest) {
@@ -521,7 +618,10 @@ categories: android
 		LOGD("setFieldFlag_5_0: %d ", artField->access_flags_);
 	}
 
-我们看到，主要是把原方法的各种属性都改成补丁方法的，同时实现的指针也替换为新的。真是写Android程序，虽说是用java入门，不过写到后面变成了C/C++去了。整个项目还是挺小巧精悍的，赞
+我们看到，主要是把原方法的各种属性都改成补丁方法的，同时实现的指针也替换为新的。
+ 
+
+真是写Android程序，虽说是用java入门，不过写到后面变成了C/C++去了。整个项目还是挺小巧精悍的，赞
 
 ## Dexposed
 版本：d108256
@@ -548,9 +648,7 @@ categories: android
 `libxposed_dalvik`和`libxposed_art`里面，以`dalvik`为例大致来说就是记录下原来的方法信息，并把方法指针指向我们的`hookedMethodCallback`，从而实现拦截的目的。
 
 至于代码的解析，应为不能修art的我们先不深究 (  -_ -" )
-不要打我。这篇文章已经很长，我也好困了...
- 其余几个库，我们下次再写可好..
- 先睡觉...
+其余几个库，我们下次再写。
 
 # 比较
 
