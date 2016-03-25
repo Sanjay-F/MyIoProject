@@ -1,5 +1,5 @@
 
-title: 源码探索系列25---救急灭火的消防员之HotFix
+title: 源码探索系列25---救急灭火的消防员之插件&HotFix
 date: 2016-03-05 23:33:46
 tags: [android,源码,HotFix]
 categories: android
@@ -9,6 +9,7 @@ categories: android
 
 ![enter image description here](http://7xl9zd.com1.z0.glb.clouddn.com/hotfix_201832-120i022461493.jpg)
 
+在插件化和热修复方面，应该算是解决了不少燃眉问题了。
 
 目前开源的有：
 360的[DroidPlugin](https://github.com/Qihoo360/DroidPlugin)，
