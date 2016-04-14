@@ -344,7 +344,7 @@ mActions 以Action为 key，注册这个Action的BroadcastReceiver链表为 valu
 而且，像上面那也不是使用静态内部类的做法不是很好，虽然在这个上下文情况看是不会有大问题。
 关于Handler的正确姿势，欢迎查看这篇文章[源码探索系列---Handler与HandlerLeak的那些事](http://blog.csdn.net/sanjay_f/article/details/50208847) 
 
-#最后想说的
+# 最后想说的
 
 虽然比较了这么多，但实际想说的是，`本地广播`和`EventBus`其实对于很多人写的那项目来说是差不多，只是写起来啰嗦点，像我这种追求简洁和效率点的（其实就是懒），应该都会用EventBus，最少从我看的很多项目里面有看到他的影子，就这样^_^。
 

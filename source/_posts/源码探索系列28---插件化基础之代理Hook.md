@@ -8,7 +8,7 @@ categories: android
 ![enter image description here](http://7xl9zd.com1.z0.glb.clouddn.com/QQ%E6%88%AA%E5%9B%BE20160328184052.png)
 
 代理有两种，一种是常见的静态代理模型，这个在[设计模式系列2---幕后黑手的代理模式](http://sanjay-f.github.io/2015/12/30/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E7%B3%BB%E5%88%972---%E5%B9%95%E5%90%8E%E9%BB%91%E6%89%8B%E7%9A%84%E4%BB%A3%E7%90%86%E6%A8%A1%E5%BC%8F/)就有写过，他可以让我们在调用实际的api时做一些别的工作，从而达到某种程度的AOP效果。
-但当时并没有提到动态代理的概念，因为目前自己的开发需要用到的场景偏少。不过在DroidPlugin里面就很多，应为他需要hook很多的内容。
+但当时并没有提到动态代理的概念，因为目前自己的开发需要用到的场景偏少。不过在DroidPlugin里面就很多，因为他需要hook很多的内容。
 
 <!--more-->
 
@@ -204,7 +204,7 @@ getDefault作为一个静态方法，返回的是IActivityManager这个Binder。
 				            new Class[0];
 				            
             Object proxiedActivityManager = MyProxy.newProxyInstance(
-								            objClass.getClassLoader(), ifs, this);
+								            objClass.getClassLoader(),ifs,this);//<-回调自己
 								            
             FieldUtils.writeStaticField(cls, "gDefault", proxiedActivityManager);
             
@@ -233,6 +233,31 @@ getDefault作为一个静态方法，返回的是IActivityManager这个Binder。
 
 这样也就明白了为何这段代码是这么写的了。
 
+
+我们看下实现InvocationHandler接口后的invoke是怎么写的
+
+	public Object invoke(Object proxy, Method method, Object[] args){
+ 
+		 ...
+      HookedMethodHandler hookedMethodHandler = mHookHandles.getHookedMethodHandler(      
+											      method);
+      if (hookedMethodHandler != null) {
+          return hookedMethodHandler.doHookInner(mOldObj, method, args);
+      }
+      return method.invoke(mOldObj, args);
+		...
+    }
+
+
+这堆在IActivityManagerHookHandle 的init初始化了
+
+	@Override
+    protected void init() {
+        sHookedMethodHandlers.put("startActivity", new startActivity(mHostContext));
+        ...
+	}
+	
+最后由静态的内部类startActivity去处理内容
 
 # 后记
 
