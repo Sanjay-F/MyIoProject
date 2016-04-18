@@ -6,7 +6,7 @@ categories: android
 
 ------------------------------------------
 
-![enter image description here](http://7xl9zd.com1.z0.glb.clouddn.com/classLoader_1-1212291A059.jpg)
+![enter image description here](http://7xl9zd.com1.z0.glb.clouddn.com/slide_4.jpg)
 
 Java有个概念叫做`类加载器`（ClassLoader），它的作用就是`动态的装载Class文件`。借助`ClassLoader`这个类我们可以装载任何我们想要的Class文件，只需提供路径即可。
 
