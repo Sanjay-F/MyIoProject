@@ -399,7 +399,9 @@ Activity那样的，采用intent去换，是因为系统传到这里的参数是
 这里取出了我们的目标intent的内容，然后如果这service没创建过，那么缓存的mNameService就没记录，那么用`handleCreateServiceOne`去创建一个。我们继续看下内容
 
 	//这个需要适配,目前只是适配android api 21
-    private void handleCreateServiceOne(Context hostContext, Intent stubIntent, ServiceInfo info) throws Exception {
+    private void handleCreateServiceOne(Context hostContext, Intent stubIntent, 
+    ServiceInfo info) {
+         //作者的注视，表示下面代码的意思。
         //            CreateServiceData data = new CreateServiceData();
         //            data.token = fakeToken;// IBinder
         //            data.info =; //ServiceInfo
@@ -408,6 +410,7 @@ Activity那样的，采用intent去换，是因为系统传到这里的参数是
         //            activityThread.handleCreateServiceOne(data);
         //            service = activityThread.mTokenServices.get(fakeToken);
         //            activityThread.mTokenServices.remove(fakeToken);
+        
         ResolveInfo resolveInfo = hostContext.getPackageManager().
 										      resolveService(stubIntent, 0);
 										      
@@ -420,8 +423,9 @@ Activity那样的，采用intent去换，是因为系统传到这里的参数是
         Object activityThread = ActivityThreadCompat.currentActivityThread();
         
         IBinder fakeToken = new MyFakeIBinder();
-        Class CreateServiceData = Class.forName(ActivityThreadCompat.activityThreadClass()
-										        .getName()+ "$CreateServiceData");
+        Class CreateServiceData = Class.forName(
+								ActivityThreadCompat.activityThreadClass().getName()+
+								 "$CreateServiceData");
 										        
         Constructor init = CreateServiceData.getDeclaredConstructor();
         if (!init.isAccessible()) {
@@ -437,25 +441,28 @@ Activity那样的，采用intent去换，是因为系统传到这里的参数是
         }
 
 		//然后按流程的调用handleCreateService去创建Service
-		//配套的LoadedApk变量已在前面的PluginProcessManager.preLoadApk(hostContext, info)生成了	
+		//配套的LoadedApk变量已在前面的PluginProcessManager.preLoadApk(hostContext, info)
+		//生成了	
 		
-        Method method = activityThread.getClass().getDeclaredMethod("handleCreateService", 
-															        CreateServiceData);         														        
+        Method method = activityThread.getClass().getDeclaredMethod(
+								        "handleCreateService", 							        
+										CreateServiceData);
         if (!method.isAccessible()) {
             method.setAccessible(true);
         }
         method.invoke(activityThread, data);
   
         Object mService = FieldUtils.readField(activityThread, "mServices");
-        Service service = (Service) MethodUtils.invokeMethod(mService, "get", fakeToken);
-        MethodUtils.invokeMethod(mService, "remove", fakeToken);
-        
+        Service service = (Service) MethodUtils.invokeMethod(mService, "get", 
+													        fakeToken);
+	     //把AT中缓存的给清掉了，这样它就不知道这个存在了,为何要这么做呢？													        
+        MethodUtils.invokeMethod(mService, "remove", fakeToken);         
+       //然后交由自己的ServiceManage的这个变量管理，在onDestory等函数会用到
         mTokenServices.put(fakeToken, service);
         mNameService.put(info.name, service);
 
-        if (stubInfo != null) {
-          //缓存代理和实际的service对应的关系信息  
-          PluginManager.getInstance().onServiceCreated(stubInfo, info);
+        if (stubInfo != null) { 
+           PluginManager.getInstance().onServiceCreated(stubInfo, info);
         }
     }
  
@@ -465,12 +472,3 @@ Service，和我们预期的启动Activity的流程有些不一样的地方！
 # 小结
 
 DroidPlugin在解决启动Service方面，采用的是一对多的方案。
-
-
-
-
-
-
-
-
- 
