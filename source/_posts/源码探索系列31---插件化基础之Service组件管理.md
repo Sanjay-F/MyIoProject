@@ -1,4 +1,4 @@
-title: 源码探索系列31---插件化基础之Service组件管理
+﻿title: 源码探索系列31---插件化基础之Service组件管理
 date: 2016-04-17 17:27:46
 tags: [android,源码,DroidPlugin,AMS,AMN,service]
 categories: android
@@ -445,7 +445,7 @@ Activity那样的，采用intent去换，是因为系统传到这里的参数是
 		//生成了	
 		
         Method method = activityThread.getClass().getDeclaredMethod(
-								        "handleCreateService", 							        
+								        "handleCreateService", 
 										CreateServiceData);
         if (!method.isAccessible()) {
             method.setAccessible(true);
@@ -455,9 +455,10 @@ Activity那样的，采用intent去换，是因为系统传到这里的参数是
         Object mService = FieldUtils.readField(activityThread, "mServices");
         Service service = (Service) MethodUtils.invokeMethod(mService, "get", 
 													        fakeToken);
-	     //把AT中缓存的给清掉了，这样它就不知道这个存在了,为何要这么做呢？													        
+
+	     //把AT中缓存的给清掉了，这样它就不知道这个存在了,为何要这么做呢？
         MethodUtils.invokeMethod(mService, "remove", fakeToken);         
-       //然后交由自己的ServiceManage的这个变量管理，在onDestory等函数会用到
+       //然后交由自己的ServiceManage的这个变量管理，在onDestory等函数会用到       
         mTokenServices.put(fakeToken, service);
         mNameService.put(info.name, service);
 
