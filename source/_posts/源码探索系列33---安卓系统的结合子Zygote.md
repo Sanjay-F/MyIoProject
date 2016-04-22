@@ -9,21 +9,9 @@ Last time，we hava talk about `SystemServer`,which is fork by `zygote`.
 Today, we will do some research on  `Zygote`.The reason why Google use the name "Zygote" to name it Maybe it's because of the job Zygote handled. All the Application Process & the most important class `SystemServer` are all fork by him.This paper will introduction the hole startUp process of zygote.class
 
  
-``` sequence
-
 Title: StartUp Zygote 
-init->app_process: 1.main
-app_process->AndroidRuntime: 2.start
-AndroidRuntime->ZygoteInit:3. main
-ZygoteInit-> ZygoteInit: 4.registerZygoteSocket
-ZygoteInit-> ZygoteInit: 5.preLoad
-ZygoteInit-> ZygoteInit: 6.startSystemServer 
-ZygoteInit-> RuntimeInit: 7.ZygoteInit
-RuntimeInit->RuntimeInit: 8.ZygoteInitNative
-RuntimeInit->SystemServer: 9.main
-ZygoteInit-> ZygoteInit: 10.runSelectLoop
 
-```
+![startUp Zygote ](http://7xl9zd.com1.z0.glb.clouddn.com/33_%E5%82%B2%E6%B8%B8%E6%88%AA%E5%9B%BE20160423004450.jpg)
 
 
 
@@ -62,7 +50,7 @@ means what to restart when zygote service process is restarts.
 according to the command ,we know the face that the service path is 
 system/bin/app_process/app_process/app_main.cpp .ok,let's have a look!
 
-#1- app_main
+# app_main
 
 
 
@@ -225,7 +213,7 @@ the whole process just collect the info and  call `runtime.start()` function.the
 	    ...  
 	};
 
-# 2. AndroidRuntime.start
+# AndroidRuntime.start
 
 	/*
 	 * Start the Android runtime.  This involves starting the virtual machine
@@ -323,7 +311,7 @@ the whole process just collect the info and  call `runtime.start()` function.the
   - 2. startReg ,register jni function
   - 3. Invoke ZygoteInit.main()
  
-##2.1 startVm
+##  startVm
 
 	int AndroidRuntime::startVm(JavaVM** pJavaVM, JNIEnv** pEnv, bool zygote){
 	
@@ -370,7 +358,7 @@ well, sometimes in our gradle ,we'll use  like  `javaMaxHeapSize "2g"` to opt th
 	   }
 	}
 
-# 3. ZygoteInit.main
+#  ZygoteInit.main
 
 wow.  we have see this main function before when talk about the  System Server. so .make long story short 
 
@@ -410,7 +398,7 @@ wow.  we have see this main function before when talk about the  System Server. 
 		...
     }
     
-## 3.1 registerZygoteSocket
+##  registerZygoteSocket
 
 	private static void registerZygoteSocket(String socketName) {
         if (sServerSocket == null) {
@@ -435,7 +423,7 @@ wow.  we have see this main function before when talk about the  System Server. 
             }
         }
     }
-## 3.2 preload()
+## preload()
 
 	static void preload() {
 	       Log.d(TAG, "begin preload");
@@ -455,7 +443,7 @@ wow.  we have see this main function before when talk about the  System Server. 
 	       Log.d(TAG, "end preload");
 	   }
 
-## 3.3 startSystemServer
+##  startSystemServer
 create system server process ,uid=1000,gid=1000
 
 	private static boolean startSystemServer(String abiList, String socketName)
@@ -521,7 +509,7 @@ link:  [源码探索系列32---万物初生System Servers](http://sanjay-f.githu
 
          
            
-## 3.4-runSelectLoop
+## runSelectLoop
 
 	/**
      * Runs the zygote process's select loop. Accepts new connections as
@@ -581,6 +569,8 @@ link:  [源码探索系列32---万物初生System Servers](http://sanjay-f.githu
 查看整个启动过程，还是发现不少知识上的不足的地方，顺便也学习了下！
 感觉又有新的突破感！继续加油
  
+
+hexo 原生不支持时序图，搞了半天没弄好。明天起床有空再搞吧
 
 # Ref
 information from many places to put this article together.
