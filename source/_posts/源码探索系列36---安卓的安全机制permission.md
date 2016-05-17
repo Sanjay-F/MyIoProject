@@ -1,5 +1,5 @@
 title: 源码探索系列36---安卓的安全机制permission
-date: 2016-05-18 00:28:46
+date: 2016-05-18 00:45:46
 tags: [android,源码,permission]
 categories: android
 
@@ -862,7 +862,10 @@ Package 的权限信息主要通过在 AndroidManifest.xml 中通过一些标签
        
     }
 
+# 后记
 
+不知不觉又是凌晨，每次写到深夜，都有一种感觉。
+那就是写完很开心，但旁边空无一人。
 
 # REF:
 
