@@ -4,17 +4,15 @@ tags: [android,源码,permission]
 categories: android
 
 ------------------------------------------
-
-
-# Android 安全机制概述
-API:23
+ 
+本文尝试从源码的角度来对permission等机制做一个了解。
+另外从安装一个apk的整个流程来看与permission相关的内容。
+ 
 
 Android 是一个**权限分离**的系统。利用 Linux 已有的权限管理机制，通过为每一个APP分配不同的`uid`和`gid`，从而使得不同的 App之间的私有数据和访问(native 以及 java 层通过这种 sandbox 机制，都可以)达到隔离的目的。
 
 与此同时，安卓在此基础上还进行了扩展，提供了`permission机制`，它主要是用来对`App`可以执行的某些具体操作进行权限细分和访问控制，同时提供了`per-URI permission 机制`，用来提供对某些特定的数据块进行 ad-hoc 方式的访问。
-
-本文将对permission等机制从源码的角度来做一个了解
-
+ 
 <!--more-->
 
 ## Android 系统权限定义 uid 、 gid 、 gids
@@ -65,7 +63,7 @@ Android 是一个**权限分离**的系统。利用 Linux 已有的权限管理�
 
 
 # Android permission 管理机制
-
+API:23
 ##  检测apk
 
 在系统源码的packages/apps/PackageInstaller目录，对应系统的安装程序,就是熟悉的这个
@@ -691,7 +689,711 @@ Package 的权限信息主要通过在 AndroidManifest.xml 中通过一些标签
 
 这里首先做一些权限的检查，并判断当前安装APK的user是否具有相应的权限。在安装APK的时候分为程序开发人员通过ADB安装和user通过网上下载安装，当通过ADB安装时，往往不需要对程序做验证，这就是INSTALL_FROM_ADB这个flag的作用。最后构造一个INIT_COPY的cmd，并带有InstallParams的message发给`PackageHandler`处理。
 
-关于安装部分就暂停到这里，不做过多深入的了解。
+ 然后我们去看下关于这消息的处理是怎样的
+
+
+    void doHandleMessage(Message msg) {
+	      switch (msg.what) {
+	            case INIT_COPY: {
+	                HandlerParams params = (HandlerParams) msg.obj;
+	                int idx = mPendingInstalls.size();
+	                ...
+	                mPendingInstalls.add(idx, params);
+	                 // Already bound to the service. Just make
+	                 // sure we trigger off processing the first request.
+	                 if (idx == 0) {
+	                     mHandler.sendEmptyMessage(MCS_BOUND);
+	                 }
+	                 ...
+	                 
+		        case MCS_BOUND: {		                    
+	                  HandlerParams params = mPendingInstalls.get(0);
+	                  if (params != null) {
+	                      if (params.startCopy()) { 
+	                         ...
+	                  }           
+
+### startCopy()
+跑了一圈消息后，通过调用的HandlerParams的startCopy开始复制程序。
+
+	final boolean startCopy() {
+            boolean res;
+            try {
+                if (DEBUG_INSTALL) Slog.i(TAG, "startCopy " + mUser + ": " + this);
+
+                if (++mRetries > MAX_RETRIES) {                     
+                    mHandler.sendEmptyMessage(MCS_GIVE_UP);
+                    handleServiceError();
+                    return false;
+                } else {
+                    handleStartCopy();
+                    res = true;
+                }
+            } catch (RemoteException e) {
+                if (DEBUG_INSTALL) Slog.i(TAG, "Posting install MCS_RECONNECT");
+                mHandler.sendEmptyMessage(MCS_RECONNECT);
+                res = false;
+            }
+            handleReturnCode();
+            return res;
+        }
+这段代码看到，程序会尝试最多MAX_RETRIES即4次的copy尝试，超过就发送错误消息，放弃安装
+现在让我们去看下那个handleStartCopy内容
+
+### installParams.handleStartCopy()
+
+	/*
+         * Invoke remote method to get package information and install
+         * location values. Override install location based on default
+         * policy if needed and then create install arguments based
+         * on the install location.
+         */
+        public void handleStartCopy() throws RemoteException {
+            int ret = PackageManager.INSTALL_SUCCEEDED;
+
+            // If we're already staged, we've firmly committed to an install location
+            if (origin.staged) {
+                if (origin.file != null) {
+                    installFlags |= PackageManager.INSTALL_INTERNAL;
+                    installFlags &= ~PackageManager.INSTALL_EXTERNAL;
+                } else if (origin.cid != null) {
+                    installFlags |= PackageManager.INSTALL_EXTERNAL;
+                    installFlags &= ~PackageManager.INSTALL_INTERNAL;
+                } else {
+                    throw new IllegalStateException("Invalid stage location");
+                }
+            }
+
+            final boolean onSd = (installFlags & PackageManager.INSTALL_EXTERNAL) != 0;
+            final boolean onInt = (installFlags & PackageManager.INSTALL_INTERNAL) != 0;
+
+            PackageInfoLite pkgLite = null;
+			//STEP1,看安装位置标记是否要把apk同时装到内部存储和sd卡
+			//这是什么鬼意思呢？如果都要就报错，难道还有这情况？
+            if (onInt && onSd) {
+                // Check if both bits are set.
+                Slog.w(TAG, "Conflicting flags specified for installing on both internal and external");
+                ret = PackageManager.INSTALL_FAILED_INVALID_INSTALL_LOCATION;
+            } else {
+            
+            //STEP2. 调用MCS的getMinimalPackageInfo来得到apk的推荐安装位置，并检查是否能装。例如空间够不够，不够就清点空间，无效的apk文件等             
+                pkgLite = mContainerService.getMinimalPackageInfo(origin.resolvedPath, installFlags,
+                        packageAbiOverride);
+
+                ...                    
+                    if (pkgLite.recommendedInstallLocation
+                            == PackageHelper.RECOMMEND_FAILED_INVALID_URI) {
+                        pkgLite.recommendedInstallLocation
+                            = PackageHelper.RECOMMEND_FAILED_INSUFFICIENT_STORAGE;
+                            //不够空间
+                    }
+                }
+            }
+
+            if (ret == PackageManager.INSTALL_SUCCEEDED) {
+                int loc = pkgLite.recommendedInstallLocation;
+                if (loc == PackageHelper.RECOMMEND_FAILED_INVALID_LOCATION) {
+                    ret = PackageManager.INSTALL_FAILED_INVALID_INSTALL_LOCATION;
+                } else if (loc == PackageHelper.RECOMMEND_FAILED_ALREADY_EXISTS) {
+                    ret = PackageManager.INSTALL_FAILED_ALREADY_EXISTS;
+                } else if (loc == PackageHelper.RECOMMEND_FAILED_INSUFFICIENT_STORAGE) {
+                    ret = PackageManager.INSTALL_FAILED_INSUFFICIENT_STORAGE;
+                } else if (loc == PackageHelper.RECOMMEND_FAILED_INVALID_APK) {
+                    ret = PackageManager.INSTALL_FAILED_INVALID_APK;
+                } else if (loc == PackageHelper.RECOMMEND_FAILED_INVALID_URI) {
+                    ret = PackageManager.INSTALL_FAILED_INVALID_URI;
+                } else if (loc == PackageHelper.RECOMMEND_MEDIA_UNAVAILABLE) {
+                    ret = PackageManager.INSTALL_FAILED_MEDIA_UNAVAILABLE;
+                } else {
+                
+                  //STEP3.如果前面过了，就开始调用这个安装
+                    loc = installLocationPolicy(pkgLite);
+                    if (loc == PackageHelper.RECOMMEND_FAILED_VERSION_DOWNGRADE) {
+                        ret = PackageManager.INSTALL_FAILED_VERSION_DOWNGRADE;
+                    }
+                   ...
+                }
+            }
+
+            final InstallArgs args = createInstallArgs(this);
+            mArgs = args;
+
+            ...
+            //STEP4.  调用copyApk方法来完成apk的复制过程
+            ret = args.copyApk(mContainerService, true);
+            ...
+        }
+
+###  createInstallArgs()
+
+	private InstallArgs createInstallArgs(InstallParams params) {
+       if (params.move != null) {
+           return new MoveInstallArgs(params);
+       }else if(installOnExternalAsec(params.installFlags) || params.isForwardLocked()){
+           return new AsecInstallArgs(params);
+       } else {
+           return new FileInstallArgs(params);
+       }
+    }
+根据安装路径的不同会建不同的InstallArgs，AsecInstallArgs就是指安装在外部存储空间上；FileInstallArgs是指安装在内部存储空间。而这个MoveInstallArgs看起来像是挪到data目录的。
+
+在第四步的时候，他调用了args.copyApk方法！我们分类看下
+
+#### MoveInstallArgs.copyApk()
+
+	int copyApk(IMediaContainerService imcs, boolean temp) {
+            if (DEBUG_INSTALL) Slog.d(TAG, "Moving " + move.packageName + " from "
+                    + move.fromUuid + " to " + move.toUuid);
+            synchronized (mInstaller) {
+                if (mInstaller.copyCompleteApp(move.fromUuid, move.toUuid, move.packageName,
+                        move.dataAppName, move.appId, move.seinfo) != 0) {
+                    return PackageManager.INSTALL_FAILED_INTERNAL_ERROR;
+                }
+            }
+
+            codeFile = new File(Environment.getDataAppDirectory(move.toUuid), move.dataAppName);
+            resourceFile = codeFile;
+            if (DEBUG_INSTALL) Slog.d(TAG, "codeFile after move is " + codeFile);
+
+            return PackageManager.INSTALL_SUCCEEDED;
+        }
+
+#### AsecInstallArgs.copyApk 
+
+	int copyApk(IMediaContainerService imcs, boolean temp) throws RemoteException {
+            ...
+
+            if (temp) {
+                createCopyFile();
+            }
+             ...
+
+            final String newMountPath = imcs.copyPackageToContainer(
+                    origin.file.getAbsolutePath(), cid, getEncryptKey(), isExternalAsec(),
+                    isFwdLocked(), deriveAbiOverride(abiOverride, null /* settings */));
+
+            if (newMountPath != null) {
+                setMountPath(newMountPath);
+                return PackageManager.INSTALL_SUCCEEDED;
+            } else {
+                return PackageManager.INSTALL_FAILED_CONTAINER_ERROR;
+            }
+        }
+
+		void createCopyFile() {
+            cid = mInstallerService.allocateExternalStageCidLegacy();
+        }
+
+ createCopyFile()找到一个尚未被使用的目录名赋予给cid。
+在copyApk方法中调用MCS的copyPackageToContainer方法完成真正的创建目录以及拷贝文件的操作。
+
+
+####  FileInstallArgs.copyApk 
+	int copyApk(IMediaContainerService imcs, boolean temp) throws RemoteException {
+	    ...
+         try {
+             final File tempDir = mInstallerService.
+                allocateStageDirLegacy(volumeUuid);
+             //最后靠Environment.getDataAppDirectory(volumeUuid);
+             //这句创建到data/app
+             
+             codeFile = tempDir;
+             resourceFile = tempDir;
+         } catch (IOException e) {
+             Slog.w(TAG, "Failed to create copy file: " + e);
+             return PackageManager.INSTALL_FAILED_INSUFFICIENT_STORAGE;
+         }
+
+         final IParcelFileDescriptorFactory target = 
+	           new IParcelFileDescriptorFactory.Stub() {		           
+	           
+             @Override
+             public ParcelFileDescriptor open(String name, int mode){
+             
+                 if (!FileUtils.isValidExtFilename(name)) {
+                     throw new IllegalArgumentException("Invalid filename: " + name);
+                 }
+                 try {
+                     final File file = new File(codeFile, name);
+                     final FileDescriptor fd = Os.open(file.getAbsolutePath(),
+                             O_RDWR | O_CREAT, 0644);
+                     Os.chmod(file.getAbsolutePath(), 0644);
+                     return new ParcelFileDescriptor(fd);
+                 } catch (ErrnoException e) {
+                     throw new RemoteException("Failed to open: " + e.getMessage());
+                 }
+             }
+         };
+
+		//下面是一些复制操作，包括些lib等内容
+         int ret = PackageManager.INSTALL_SUCCEEDED;
+         ret = imcs.copyPackage(origin.file.getAbsolutePath(), target);
+         if (ret != PackageManager.INSTALL_SUCCEEDED) {
+             Slog.e(TAG, "Failed to copy package");
+             return ret;
+         }
+
+         final File libraryRoot = new File(codeFile, LIB_DIR_NAME);
+         NativeLibraryHelper.Handle handle = null;
+         try {
+             handle = NativeLibraryHelper.Handle.create(codeFile);
+             ret = NativeLibraryHelper.copyNativeBinariesWithOverride(
+             handle, libraryRoot,abiOverride);
+             
+         } catch (IOException e) {
+             Slog.e(TAG, "Copying native libraries failed", e);
+             ret = PackageManager.INSTALL_FAILED_INTERNAL_ERROR;
+         } finally {
+             IoUtils.closeQuietly(handle);
+         }
+         return ret;
+     }
+经过上面一堆的操作，我们的apk就成功的复制好了
+
+现在我们需要会主线，回到InstallParams的startCopy方法，它中会调用handleReturnCode来处理拷贝的结果
+
+ 
+ 
+### handleReturnCode()
+
+
+	@Override
+    void handleReturnCode() { 
+        if (mArgs != null) {
+            processPendingInstall(mArgs, mRet);
+        }
+    }
+    
+### processPendingInstall()
+
+	private void processPendingInstall(final InstallArgs args, final int currentStatus){
+	
+        // Queue up an async operation since the package installation may take a little while.
+        mHandler.post(new Runnable() {
+            public void run() {
+                mHandler.removeCallbacks(this);
+                 // Result object to be returned
+                PackageInstalledInfo res = new PackageInstalledInfo();
+                res.returnCode = currentStatus;
+                res.uid = -1;
+                res.pkg = null;
+                res.removedInfo = new PackageRemovedInfo();
+                if (res.returnCode == PackageManager.INSTALL_SUCCEEDED) {
+                    args.doPreInstall(res.returnCode);
+                    synchronized (mInstallLock) {
+                        installPackageLI(args, res);
+                    }
+                    args.doPostInstall(res.returnCode, res.uid);
+                }
+                ... 
+        });
+    }
+    
+我们看到他会先调用doPreInstall函数，这个名字让我想起了在DroidPlugi的时候，他的代码在安装HOOK的时候，都有类似的preInstall和doPostInstall的调用抽象方法。这里的doPreInstall背后是去清了下缓存。
+
+然后这个installPackageLi则贼长！PMS里面的代码就是这样和AMS一个鬼，虽然重构了那么多次，还是这样，更何况还经常改
+ 
+              
+###  PMS.installPackageLI()
+
+	private void installPackageLI(InstallArgs args, PackageInstalledInfo res) {
+        final int installFlags = args.installFlags;
+        final String installerPackageName = args.installerPackageName;
+        final String volumeUuid = args.volumeUuid;
+        final File tmpPackageFile = new File(args.getCodePath());
+        ...
+  
+		// Retrieve PackageSettings and parse package
+        final int parseFlags = mDefParseFlags | PackageParser.PARSE_CHATTY
+                | (forwardLocked ? PackageParser.PARSE_FORWARD_LOCK : 0)
+                | (onExternal ? PackageParser.PARSE_EXTERNAL_STORAGE : 0);   
+                   
+        PackageParser pp = new PackageParser();
+        pp.setSeparateProcesses(mSeparateProcesses);
+        pp.setDisplayMetrics(mMetrics);
+        final PackageParser.Package pkg;
+		//1. 开始解析我们的包
+        pkg = pp.parsePackage(tmpPackageFile, parseFlags);
+  
+        // Mark that we have an install time CPU ABI override.
+        pkg.cpuAbiOverride = args.abiOverride;
+
+		...
+		//2. 收集签字信息和Manifest里面的内容
+        try {
+            pp.collectCertificates(pkg, parseFlags);
+            pp.collectManifestDigest(pkg);
+        } catch (PackageParserException e) {
+            res.setError("Failed collect during installPackageLI", e);
+            return;
+        }
+
+		 ...
+		 
+        // Get rid of all references to package scan path via parser.
+        pp = null;
+        String oldCodePath = null;
+        boolean systemApp = false;
+        synchronized (mPackages) {
+            // Check if installing already existing package
+	         ...//调过一些和如果已安装过的一些相关操作
+
+            PackageSetting ps = mSettings.mPackages.get(pkgName);
+            if (ps != null) {
+                if (DEBUG_INSTALL) Slog.d(TAG, "Existing package: " + ps);
+				//3.对签名信息做判断，早期很多盗版应用进程改下签名加广告的
+                // Quick sanity check that we're signed correctly if updating;
+                // we'll check this again later when scanning, but we want to
+                // bail early here before tripping over redefined permissions.                
+                if (shouldCheckUpgradeKeySetLP(ps, scanFlags)) {
+                    if (!checkUpgradeKeySetLP(ps, pkg)) {
+                        res.setError(INSTALL_FAILED_UPDATE_INCOMPATIBLE, "Package "
+                                +pkg.packageName + " upgrade keys do not match the "
+                                +"previously installed version");
+                                
+                        return;
+                    }
+                } else {
+                    try {
+                        verifySignaturesLP(ps, pkg);
+                    } catch (PackageManagerException e) {
+                        res.setError(e.error, e.getMessage());
+                        return;
+                    }
+                }
+
+                oldCodePath = mSettings.mPackages.get(pkgName).codePathString;
+                if (ps.pkg != null && ps.pkg.applicationInfo != null) {
+                    systemApp = (ps.pkg.applicationInfo.flags &
+                            ApplicationInfo.FLAG_SYSTEM) != 0;
+                }
+                res.origUsers = ps.queryInstalledUsers(sUserManager.getUserIds(), true);
+            }
+            
+			//4. 权限处理部分，为何这哥们不分开成多个函数呢？看着好累	
+		     //Check whether the newly-scanned package
+		     // wants to define an already-defined perm
+            
+            int N = pkg.permissions.size();
+            for (int i = N-1; i >= 0; i--) {
+                PackageParser.Permission perm = pkg.permissions.get(i);
+                BasePermission bp = mSettings.mPermissions.get(perm.info.name);
+                if (bp != null) {
+                    // If the defining package is signed with our cert, it's okay.  This
+                    // also includes the "updating the same package" case, of course.
+                    // "updating same package" could also involve key-rotation.
+                    final boolean sigsOk;
+                    if (bp.sourcePackage.equals(pkg.packageName)
+                            && (bp.packageSetting instanceof PackageSetting)
+                            && (shouldCheckUpgradeKeySetLP((PackageSetting)
+                             bp.packageSetting,scanFlags))) {
+                        sigsOk = checkUpgradeKeySetLP((PackageSetting)
+		                         bp.packageSetting, pkg);
+                    } else {
+                        sigsOk = compareSignatures(
+		                        bp.packageSetting.signatures.mSignatures,
+                                pkg.mSignatures) == PackageManager.SIGNATURE_MATCH;
+                    }
+                    if (!sigsOk) {
+                        // If the owning package is the system itself, we log but allow
+                        // install to proceed; we fail the install on all other                         
+                        //permission redefinitions.
+                        
+                        if (!bp.sourcePackage.equals("android")) {
+                            res.setError(INSTALL_FAILED_DUPLICATE_PERMISSION, "Package "
+                              +pkg.packageName + " attempting to redeclare permission "
+                           +perm.info.name + " already owned by " + bp.sourcePackage);
+                           
+                            res.origPermission = perm.info.name;
+                            res.origPackage = bp.sourcePackage;
+                            return;
+                        } else {
+                           ...      
+                            pkg.permissions.remove(i);
+                        }
+                    }
+                }
+            }
+
+        }
+		//不允许升级的系统app安装到外部存储
+        if (systemApp && onExternal) {
+            // Disable updates to system apps on sdcard
+            res.setError(INSTALL_FAILED_INVALID_INSTALL_LOCATION,
+                    "Cannot install updates to system apps on sdcard");
+            return;
+        }
+  
+		//5.对包进行opt操作，调用performDexOpt，最终调用的还是Install的dexopt函数
+	    ...
+        else if (!forwardLocked && !pkg.applicationInfo.isExternalAsec()) {
+            // Enable SCAN_NO_DEX flag to skip dexopt at a later stage
+            scanFlags |= SCAN_NO_DEX;
+            try {
+                derivePackageAbi(pkg, new File(pkg.codePath), args.abiOverride,
+                        true /* extract libs */);
+            } catch (PackageManagerException pme) {
+                Slog.e(TAG, "Error deriving application ABI", pme);
+                res.setError(INSTALL_FAILED_INTERNAL_ERROR, "Error deriving application 
+			                ABI");
+                return;
+            }			 
+            // Run dexopt before old package gets removed, 
+            //to minimize time when app is unavailable
+            int result = mPackageDexOptimizer
+                    .performDexOpt(pkg, null /* instruction sets */, false /* forceDex */,
+                            false /* defer */, false /* inclDependencies */);
+                            
+            if (result == PackageDexOptimizer.DEX_OPT_FAILED) {
+                res.setError(INSTALL_FAILED_DEXOPT, "Dexopt failed for " + pkg.codePath);
+                return;
+            }
+        }
+        
+        //6.Rename package into final resting place. All paths on the given
+		//scanned package should be updated to reflect the rename.		
+        if (!args.doRename(res.returnCode, pkg, oldCodePath)) {
+            res.setError(INSTALL_FAILED_INSUFFICIENT_STORAGE, "Failed rename");
+            return;
+        }
+
+        startIntentFilterVerifications(args.user.getIdentifier(), replace, pkg);
+
+		//7.由于我们是安装，不是升级旧包。所以走下面那条路径
+        if (replace) {
+            replacePackageLI(pkg, parseFlags, scanFlags | SCAN_REPLACING, args.user,
+                    installerPackageName, volumeUuid, res);
+        } else {
+            installNewPackageLI(pkg, parseFlags, scanFlags | SCAN_DELETE_DATA_ON_FAILURES,
+                    args.user, installerPackageName, volumeUuid, res);
+        }
+        
+        synchronized (mPackages) {
+            final PackageSetting ps = mSettings.mPackages.get(pkgName);
+            if (ps != null) {
+                res.newUsers = ps.queryInstalledUsers(sUserManager.getUserIds(), true);
+            }
+        }
+    }              
+
+#### PackageParse.parsePackage()
+
+	public Package parsePackage(File packageFile, int flags){
+        if (packageFile.isDirectory()) {
+            return parseClusterPackage(packageFile, flags);
+        } else {
+            return parseMonolithicPackage(packageFile, flags);
+        }
+    }
+
+居然还分了一个安装包和一堆安装包的情况。还真没想过有一堆cluster的情况
+
+##### parseMonolithicPackage
+
+	public Package parseMonolithicPackage(File apkFile, int flags){
+        if (mOnlyCoreApps) {
+            final PackageLite lite = parseMonolithicPackageLite(apkFile, flags);
+            if (!lite.coreApp) {
+                throw new PackageParserException(INSTALL_PARSE_FAILED_MANIFEST_MALFORMED,
+                        "Not a coreApp: " + apkFile);
+            }
+        }
+
+        final AssetManager assets = new AssetManager();
+        try {
+            final Package pkg = parseBaseApk(apkFile, assets, flags);
+            pkg.codePath = apkFile.getAbsolutePath();
+            return pkg;
+        } finally {
+            IoUtils.closeQuietly(assets);
+        }
+    }
+
+##### parseMonolithicPackageLite(
+
+	private static PackageLite parseMonolithicPackageLite(File packageFile, int flags)
+	            throws PackageParserException {
+		        //人如其名，很lite，轻量，只搜集一些基本信息
+		        //如包名，versionCode，安装位置等 
+	        final ApkLite baseApk = parseApkLite(packageFile, flags);
+	        
+	        final String packagePath = packageFile.getAbsolutePath();
+	        return new PackageLite(packagePath, baseApk, null, null, null);
+	    }	
+
+##### parseBaseApk()
+
+	 private Package parseBaseApk(File apkFile, AssetManager assets, int flags)
+            throws PackageParserException {
+            
+        final String apkPath = apkFile.getAbsolutePath();
+		...
+
+        final int cookie = loadApkIntoAssetManager(assets, apkPath, flags);
+
+        Resources res = null;
+        XmlResourceParser parser = null;
+ 
+        res = new Resources(assets, mMetrics, null);
+         assets.setConfiguration(0, 0, null, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                 Build.VERSION.RESOURCES_SDK_INT);
+         parser = assets.openXmlResourceParser(cookie, ANDROID_MANIFEST_FILENAME);
+
+         final String[] outError = new String[1];
+         
+         final Package pkg = parseBaseApk(res, parser, flags, outError);
+         ...
+          pkg.volumeUuid = volumeUuid;
+         pkg.baseCodePath = apkPath;
+         pkg.mSignatures = null;
+
+         return pkg;
+		 ...
+    }
+
+这里最重要的一句就是parseBaseApk（）函数，他会对我们的AndroidManifest文件进行解析！
+就不贴上来了，六百号，看着类，而且还有配套的函数做辅助，有个两千行了。
+有不少标签是从没用过，也没见过的。
+
+至今我对`DroidPlugin`里面包含的解析内容蛮有印象，作者为了兼容写了不少解析类!
+在文章[源码探索系列30---插件包PackageManagerService/PMS](http://sanjay-f.github.io/2016/04/14/%E6%BA%90%E7%A0%81%E6%8E%A2%E7%B4%A2%E7%B3%BB%E5%88%9730---%E6%8F%92%E4%BB%B6%E5%8C%85PackageManagerService-PMS/)的PackageParser 类里面，就为了不同版本写了不同解析类。
+
+  
+  
+#### installNewPackageLI()
+
+	private void installNewPackageLI(PackageParser.Package pkg, int parseFlags,
+	 int scanFlags,UserHandle user, String installerPackageName, String volumeUuid,
+	 PackageInstalledInfo res) {
+	 
+        // Remember this for later, in case we need to rollback this install
+        String pkgName = pkg.packageName;
+                
+        ...
+        try {
+            PackageParser.Package newPackage = scanPackageLI(pkg, parseFlags, scanFlags,
+                    System.currentTimeMillis(), user);
+            updateSettingsLI(newPackage, installerPackageName, volumeUuid, 
+				            null, null, res, user); 
+            if (res.returnCode != PackageManager.INSTALL_SUCCEEDED) {
+				 //安装不成功就删除
+                deletePackageLI(pkgName, UserHandle.ALL, false, null, null,
+                        dataDirExists ? PackageManager.DELETE_KEEP_DATA : 0,
+                                res.removedInfo, true);
+            }
+        } catch (PackageManagerException e) {
+            res.setError("Package couldn't be installed in " + pkg.codePath, e);
+        }
+    }
+    
+1. scanPackageLI ,赫赫，整个scanPackageLI的长度一千两百行，看得我傻傻的，反正我看完大部分忘了。
+主要内容为，调用该方法把新package的资源归入到`PMS`中，并创建一个`PackageSettings`对象，加入到Settings中的mPackages这个map中。
+ 
+2. updateSettingsLI , 这个就短了不少，先调用Settings的writeLPr方法更新`packages.xml`文件，将新安装的package信息写到这个xml文件。`updatePermissionsLPw`，它用于给当前安装的APK分配权限，并把相应的gid号保存在PackageSetting或者SharedUserSetting的gids数组中。
+
+
+ 这一部分终于和我们文章的主题有关系了，看了前面那么多的内容！！！！
+ 终于看到与权限的内容啦！
+ 
+
+####  updatePermissionsLPw
+
+	private void updatePermissionsLPw(String changingPkg,
+            PackageParser.Package pkgInfo, int flags) {
+            
+        // Make sure there are no dangling permission trees.
+        Iterator<BasePermission> it = mSettings.mPermissionTrees.values().iterator();
+        while (it.hasNext()) {
+            final BasePermission bp = it.next();
+            if (bp.packageSetting == null) {
+                // We may not yet have parsed the package, so just see if
+                // we still know about its settings.
+                bp.packageSetting = mSettings.mPackages.get(bp.sourcePackage);
+            }
+            if (bp.packageSetting == null) {
+                Slog.w(TAG, "Removing dangling permission tree: " + bp.name
+                        + " from package " + bp.sourcePackage);
+                it.remove();
+            } else if (changingPkg != null && changingPkg.equals(bp.sourcePackage)) {
+                if (pkgInfo == null || !hasPermission(pkgInfo, bp.name)) {
+                    Slog.i(TAG, "Removing old permission tree: " + bp.name
+                            + " from package " + bp.sourcePackage);
+                    flags |= UPDATE_PERMISSIONS_ALL;
+                    it.remove();
+                }
+            }
+        }
+
+        // Make sure all dynamic permissions have been assigned to a package,
+        // and make sure there are no dangling permissions.
+        it = mSettings.mPermissions.values().iterator();
+        while (it.hasNext()) {
+            final BasePermission bp = it.next();
+            if (bp.type == BasePermission.TYPE_DYNAMIC) {
+                if (DEBUG_SETTINGS) Log.v(TAG, "Dynamic permission: name="
+                        + bp.name + " pkg=" + bp.sourcePackage
+                        + " info=" + bp.pendingInfo);
+                if (bp.packageSetting == null && bp.pendingInfo != null) {
+                    final BasePermission tree = findPermissionTreeLP(bp.name);
+                    if (tree != null && tree.perm != null) {
+                        bp.packageSetting = tree.packageSetting;
+                        bp.perm = new PackageParser.Permission(tree.perm.owner,
+                                new PermissionInfo(bp.pendingInfo));
+                        bp.perm.info.packageName = tree.perm.info.packageName;
+                        bp.perm.info.name = bp.name;
+                        bp.uid = tree.uid;
+                    }
+                }
+            }
+            if (bp.packageSetting == null) {
+                // We may not yet have parsed the package, so just see if
+                // we still know about its settings.
+                bp.packageSetting = mSettings.mPackages.get(bp.sourcePackage);
+            }
+            if (bp.packageSetting == null) {
+                Slog.w(TAG, "Removing dangling permission: " + bp.name
+                        + " from package " + bp.sourcePackage);
+                it.remove();
+            } else if (changingPkg != null && changingPkg.equals(bp.sourcePackage)) {
+                if (pkgInfo == null || !hasPermission(pkgInfo, bp.name)) {
+                    Slog.i(TAG, "Removing old permission: " + bp.name
+                            + " from package " + bp.sourcePackage);
+                    flags |= UPDATE_PERMISSIONS_ALL;
+                    it.remove();
+                }
+            }
+        }
+
+        // Now update the permissions for all packages, in particular
+        // replace the granted permissions of the system packages.
+        if ((flags&UPDATE_PERMISSIONS_ALL) != 0) {
+            for (PackageParser.Package pkg : mPackages.values()) {
+                if (pkg != pkgInfo) {
+                    grantPermissionsLPw(pkg, (flags&UPDATE_PERMISSIONS_REPLACE_ALL) != 0,
+                            changingPkg);
+                }
+            }
+        }
+
+        if (pkgInfo != null) {
+            grantPermissionsLPw(pkgInfo, (flags&UPDATE_PERMISSIONS_REPLACE_PKG) != 0, changingPkg);
+        }
+    }
+
+
+
+## apk的解析过程
+
+在上面的安装完成后，系统接着会对apk进行dex提取和解析，在PMS内部有一个`AppDirObserver`类，它的作用是应用目录观察者，它时刻观察着应用目录/data/app/，当目录内部结构改变的时候（创建文件和删除文件）它会做出相应行为。
+
+### 思考：监听app的卸载
+以前有找过一些方案，如何监听自己的app被卸载，然后跳出一张问卷出来，以收集用户的反馈。
+那时查资料时候，一个方案就是监听data目录，还有去监听系统log的方案.。参考：[360 手机卫士Android 版是如何做到在卸载完成后弹出一个网页的？](https://www.zhihu.com/question/20773194)
+读log的方案似乎后来被安卓堵了，现在没有这需求，就没再跟进过这个问题了。
+
+
+ 
+
 
 # 检验
 
@@ -869,8 +1571,8 @@ Package 的权限信息主要通过在 AndroidManifest.xml 中通过一些标签
 
 # REF:
 
-1. [Android 安全架构及权限控制机制剖析](http://www.ibm.com/developerworks/cn/opensource/os-cn-android-sec/)
- 
+1. [Android 安全架构及权限控制机制剖析](http://www.ibm.com/developerworks/cn/opensource/os-cn-android-sec/) 
 2. [Android的权限机制总结](http://dengzhangtao.iteye.com/blog/1990138)
 3. [谷歌官方文档关于permission等标签的说明](https://developer.android.com/guide/topics/manifest/permission-element.html)
- 
+4. [Android内核解读-应用的安装过程](http://blog.csdn.net/singwhatiwanna/article/details/19578947?utm_source=tuicool&utm_medium=referral) 
+http://blog.csdn.net/lilian0118/article/details/25792601
