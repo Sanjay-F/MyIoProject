@@ -1,5 +1,5 @@
 title: 源码探索系列36---安卓的安全机制permission
-date: 2016-05-18 00:45:46
+date: 2016-05-18 22:28:46
 tags: [android,源码,permission]
 categories: android
 
@@ -15,7 +15,7 @@ Android 是一个**权限分离**的系统。利用 Linux 已有的权限管理�
  
 <!--more-->
 
-## Android 系统权限定义 uid 、 gid 、 gids
+# Android 系统权限定义 uid 、 gid 、 gids
 
 安卓的权限分离是在Linux已有的`uid`、`gid` 、`gids`基础上的UID。为了做到隔离，避免一些攻击等，当我们安装应用程序时，系统会为它分配一个uid(见`PackageManagerService`中`newUserLP`部分)。
 
@@ -985,7 +985,23 @@ Package 的权限信息主要通过在 AndroidManifest.xml 中通过一些标签
                     }
                     args.doPostInstall(res.returnCode, res.uid);
                 }
-                ... 
+                ... 				
+				int token;
+                if (mNextInstallToken < 0) mNextInstallToken = 1;
+                token = mNextInstallToken++;
+                
+                PostInstallData data = new PostInstallData(args, res);
+                mRunningInstalls.put(token, data);
+ 
+				...
+				
+                if (!doRestore) {
+                    // No restore possible, or the Backup Manager was mysteriously not
+                    // available -- just fire the post-install work request directly.
+                     Message msg = mHandler.obtainMessage(POST_INSTALL, token, 0);
+                    mHandler.sendMessage(msg);
+                }
+            }
         });
     }
     
@@ -994,7 +1010,7 @@ Package 的权限信息主要通过在 AndroidManifest.xml 中通过一些标签
 然后这个installPackageLi则贼长！PMS里面的代码就是这样和AMS一个鬼，虽然重构了那么多次，还是这样，更何况还经常改
  
               
-###  PMS.installPackageLI()
+###  installPackageLI()
 
 	private void installPackageLI(InstallArgs args, PackageInstalledInfo res) {
         final int installFlags = args.installFlags;
@@ -1286,17 +1302,17 @@ Package 的权限信息主要通过在 AndroidManifest.xml 中通过一些标签
         }
     }
     
-1. scanPackageLI ,赫赫，整个scanPackageLI的长度一千两百行，看得我傻傻的，反正我看完大部分忘了。
+1. **scanPackageLI** ,赫赫，整个scanPackageLI的长度一千两百行，看得我傻傻的，反正我看完大部分忘了。
 主要内容为，调用该方法把新package的资源归入到`PMS`中，并创建一个`PackageSettings`对象，加入到Settings中的mPackages这个map中。
+ 另外我们的
  
-2. updateSettingsLI , 这个就短了不少，先调用Settings的writeLPr方法更新`packages.xml`文件，将新安装的package信息写到这个xml文件。`updatePermissionsLPw`，它用于给当前安装的APK分配权限，并把相应的gid号保存在PackageSetting或者SharedUserSetting的gids数组中。
-
+2. **updateSettingsLI ,** 这个就短了不少，先调用Settings的writeLPr方法更新`packages.xml`文件，将新安装的package信息写到这个xml文件。接着调用下`updatePermissionsLPw`函数，它用于给当前安装的APK分配权限，并把相应的gid号保存在PackageSetting或者SharedUserSetting的gids数组中。
 
  这一部分终于和我们文章的主题有关系了，看了前面那么多的内容！！！！
  终于看到与权限的内容啦！
  
 
-####  updatePermissionsLPw
+#####  updatePermissionsLPw
 
 	private void updatePermissionsLPw(String changingPkg,
             PackageParser.Package pkgInfo, int flags) {
@@ -1379,20 +1395,177 @@ Package 的权限信息主要通过在 AndroidManifest.xml 中通过一些标签
             grantPermissionsLPw(pkgInfo, (flags&UPDATE_PERMISSIONS_REPLACE_PKG) != 0, changingPkg);
         }
     }
+    
+另外想说的是，这个grantPermissionsLPw函数也很长。几百行的样子。什么时候这个PMS可以瘦身点。
 
 
+###  processPendingInstall()
+ 看完上面的内容，我们需要回主线，回到开头的processPendingInstall()函数，继续后面的内容，为方便阅读，粘贴到这里：
+ 
+			   ... 				
+				int token;
+                if (mNextInstallToken < 0) mNextInstallToken = 1;
+                token = mNextInstallToken++;
+                
+                PostInstallData data = new PostInstallData(args, res);
+                mRunningInstalls.put(token, data);
+ 
+				...
+				
+                if (!doRestore) {
+                    // No restore possible, or the Backup Manager was mysteriously not
+                    // available -- just fire the post-install work request directly.
+                     Message msg = mHandler.obtainMessage(POST_INSTALL, token, 0);
+                    mHandler.sendMessage(msg);
+                }
 
-## apk的解析过程
+他最后发了一条POST_INSTALL的消息给handler。我们去看下是做了什么内容
 
-在上面的安装完成后，系统接着会对apk进行dex提取和解析，在PMS内部有一个`AppDirObserver`类，它的作用是应用目录观察者，它时刻观察着应用目录/data/app/，当目录内部结构改变的时候（创建文件和删除文件）它会做出相应行为。
+### POST_INSTALL
 
+	case POST_INSTALL: {
+ 
+        PostInstallData data = mRunningInstalls.get(msg.arg1);
+        mRunningInstalls.delete(msg.arg1);
+        boolean deleteOld = false;
+
+        if (data != null) {
+            InstallArgs args = data.args;
+            PackageInstalledInfo res = data.res;
+
+            if (res.returnCode == PackageManager.INSTALL_SUCCEEDED) {
+                final String packageName = res.pkg.applicationInfo.packageName;
+                res.removedInfo.sendBroadcast(false, true, false);
+                Bundle extras = new Bundle(1);
+                extras.putInt(Intent.EXTRA_UID, res.uid);
+
+				//在发送广播前，如果有请求运行时权限，那么就授予
+                // Now that we successfully installed the package, grant runtime
+                // permissions if requested before broadcasting the install.
+                if ((args.installFlags
+                        & PackageManager.INSTALL_GRANT_RUNTIME_PERMISSIONS) != 0) {
+                    grantRequestedRuntimePermissions(res.pkg, args.user.getIdentifier(),
+                            args.installGrantPermissions);
+                }
+
+                // Determine the set of users who are adding this
+                // package for the first time vs. those who are seeing
+                // an update.
+                int[] firstUsers;
+                int[] updateUsers = new int[0];
+                if (res.origUsers == null || res.origUsers.length == 0) {
+                    firstUsers = res.newUsers;
+                } else {
+                    firstUsers = new int[0];
+                    for (int i=0; i<res.newUsers.length; i++) {
+                        int user = res.newUsers[i];
+                        boolean isNew = true;
+                        for (int j=0; j<res.origUsers.length; j++) {
+                            if (res.origUsers[j] == user) {
+                                isNew = false;
+                                break;
+                            }
+                        }
+                        if (isNew) {
+                            int[] newFirst = new int[firstUsers.length+1];
+                            System.arraycopy(firstUsers, 0, newFirst, 0,
+                                    firstUsers.length);
+                            newFirst[firstUsers.length] = user;
+                            firstUsers = newFirst;
+                        } else {
+                            int[] newUpdate = new int[updateUsers.length+1];
+                            System.arraycopy(updateUsers, 0, newUpdate, 0,
+                                    updateUsers.length);
+                            newUpdate[updateUsers.length] = user;
+                            updateUsers = newUpdate;
+                        }
+                    }
+                }
+                
+                 
+                sendPackageBroadcast(Intent.ACTION_PACKAGE_ADDED,
+                        packageName, extras, null, null, firstUsers);
+                        
+                final boolean update = res.removedInfo.removedPackage != null;
+                if (update) {
+                    extras.putBoolean(Intent.EXTRA_REPLACING, true);
+                }
+                sendPackageBroadcast(Intent.ACTION_PACKAGE_ADDED,
+                        packageName, extras, null, null, updateUsers);
+                if (update) {
+                    sendPackageBroadcast(Intent.ACTION_PACKAGE_REPLACED,
+                            packageName, extras, null, null, updateUsers);
+                    sendPackageBroadcast(Intent.ACTION_MY_PACKAGE_REPLACED,
+                            null, null, packageName, null, updateUsers);
+
+                    // treat asec-hosted packages like removable media on upgrade
+                    if (res.pkg.isForwardLocked() || isExternal(res.pkg)) {
+                        if (DEBUG_INSTALL) {
+                            Slog.i(TAG, "upgrading pkg " + res.pkg
+                                    + " is ASEC-hosted -> AVAILABLE");
+                        }
+                        int[] uidArray = new int[] { res.pkg.applicationInfo.uid };
+                        ArrayList<String> pkgList = new ArrayList<String>(1);
+                        pkgList.add(packageName);
+                        sendResourcesChangedBroadcast(true, true,
+                                pkgList,uidArray, null);
+                    }
+                }
+                if (res.removedInfo.args != null) {
+                    // Remove the replaced package's older resources safely now
+                    deleteOld = true;
+                }
+                
+				//居然为游览器单独做一些设置，清空默认配置。
+                // If this app is a browser and it's newly-installed for some
+                // users, clear any default-browser state in those users
+                if (firstUsers.length > 0) { 
+                    if (packageIsBrowser(packageName, firstUsers[0])) {
+                        synchronized (mPackages) {
+                            for (int userId : firstUsers) {
+                                mSettings.setDefaultBrowserPackageNameLPw(null, userId);
+                            }
+                        }
+                    }
+                }
+                ...
+            }
+            
+            // Force a gc to clear up things
+            Runtime.getRuntime().gc();
+            // We delete after a gc for applications  on sdcard.
+            if (deleteOld) {
+                synchronized (mInstallLock) {
+                    res.removedInfo.args.doPostDeleteLI(true);
+                }
+            }
+            
+            //通知观察者们
+            if (args.observer != null) {             
+                 Bundle extras = extrasForInstallResult(res);
+                 args.observer.onPackageInstalled(res.name, res.returnCode,
+                         res.returnMsg, extras);              
+            }
+        } 
+    } break;
+
+整个内容就是发送广播更新，告诉别人安装了新的APP啦，或者通知APP升级更新了。
+接着回调观察者们，告诉他们安装结束了。
+
+
+至此，我们整体就结束了，安装好我们的APK啦！！
+## 小结
+根据前面的内容，我们可以把安装APK的过程简化为以下几步：
+
+1. 复制文件到code、library和resource等文件
+2. 解析待安装的APK的manifest文件，并把activity、service、provider等信息更新到PMS的全局数据结构中
+3. 更新Settings中的PackageSetting等信息
+4. 调用installd在/data/data和/data/dalvik-cache中新建package的文件目录，并link相应的文件
+ 
 ### 思考：监听app的卸载
 以前有找过一些方案，如何监听自己的app被卸载，然后跳出一张问卷出来，以收集用户的反馈。
 那时查资料时候，一个方案就是监听data目录，还有去监听系统log的方案.。参考：[360 手机卫士Android 版是如何做到在卸载完成后弹出一个网页的？](https://www.zhihu.com/question/20773194)
 读log的方案似乎后来被安卓堵了，现在没有这需求，就没再跟进过这个问题了。
-
-
- 
 
 
 # 检验
@@ -1566,13 +1739,13 @@ Package 的权限信息主要通过在 AndroidManifest.xml 中通过一些标签
 
 # 后记
 
-不知不觉又是凌晨，每次写到深夜，都有一种感觉。
-那就是写完很开心，但旁边空无一人。
-
+不知不觉又是凌晨，每次写到深夜，都有一种感觉，那就是写完很开心，但旁边空无一人。
+回看整篇文章内容，主要是想聊下关于权限的内容，在深挖安装过程的时候，由于过程实在冗长，看得有点迷失了！下次再润色下看怎么弄.
+ 
 # REF:
 
 1. [Android 安全架构及权限控制机制剖析](http://www.ibm.com/developerworks/cn/opensource/os-cn-android-sec/) 
 2. [Android的权限机制总结](http://dengzhangtao.iteye.com/blog/1990138)
 3. [谷歌官方文档关于permission等标签的说明](https://developer.android.com/guide/topics/manifest/permission-element.html)
 4. [Android内核解读-应用的安装过程](http://blog.csdn.net/singwhatiwanna/article/details/19578947?utm_source=tuicool&utm_medium=referral) 
-http://blog.csdn.net/lilian0118/article/details/25792601
+5. http://blog.csdn.net/lilian0118/article/details/25792601
