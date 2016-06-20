@@ -21,4 +21,11 @@
   <%- js('fancybox/jquery.fancybox.pack') %>
 <% } %>
 
-<%- js('js/script') %>
+<%- js('js/script') %> 
+<% if (theme.chart){ %>
+<%- js('js/raphael') %>
+<%- js('js/underscore') %>
+<%- js('js/sequence-diagram') %>
+<%- js('js/flowchart') %>
+<%- partial('chart') %>
+<% } %>
