@@ -1,5 +1,5 @@
 title: 源码探索系列45---关于局域网播放与ServerSocket
-date: 2016-09-30 16:52
+date: 2015-02-18 23:25
 tags: [android,socket]
 categories: android
 
@@ -610,11 +610,15 @@ categories: android
                 encodeAsGzip = false;
             }
             
+             //我们是有length的，所以不适用gzip，而且不是chunkedTransfer
+                        
             if (encodeAsGzip) {
                 printHeader(pw, "Content-Encoding", "gzip");
                 setChunkedTransfer(true);
             }
             
+	            /／致于这个pending，当然在我们的情况，播放视频的背景下
+	            //data为真，用contentLength
             long pending = this.data != null ? this.contentLength : 0;
             
             if (this.requestMethod != Method.HEAD && this.chunkedTransfer) {
@@ -648,6 +652,7 @@ categories: android
             sendBodyWithCorrectEncoding(chunkedOutputStream, -1);
             chunkedOutputStream.finish();
         } else {
+	        //走这个分支，chunkedTransfer为fasle
             sendBodyWithCorrectEncoding(outputStream, pending);
         }
     }
@@ -663,6 +668,7 @@ categories: android
             gzipOutputStream.finish();
             
         } else {
+	        //这个分支，我们不用gzip
             sendBody(outputStream, pending);
         }
     }
@@ -677,8 +683,14 @@ categories: android
 	     throws IOException {
     
         long BUFFER_SIZE = 16 * 1024;
+        //然后需要说下这个缓冲大小
+        //根据自己实际调整下大小。
+        
         byte[] buff = new byte[(int) BUFFER_SIZE];
         boolean sendEverything = pending == -1;
+		//接下来这部分就是循环读数据，每次读bufferSize的大小，然后送给客户端
+		//直到读完，就算结束掉这次的socket请求了。
+		
         while (pending > 0 || sendEverything) {
             long bytesToRead = sendEverything ? BUFFER_SIZE : Math.min(pending, BUFFER_SIZE);
             int read = this.data.read(buff, 0, (int) bytesToRead);
