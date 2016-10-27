@@ -404,3 +404,7 @@ api:23
 
 
 未完待续。。。
+
+
+最近在android weekly 看到一篇类似的文章，贴下地址，写得挺好的
+[Android 进程绝杀技--forceStop]{http://www.diycode.cc/topics/374}

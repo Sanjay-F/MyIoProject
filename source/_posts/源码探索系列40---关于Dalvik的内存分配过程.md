@@ -724,5 +724,8 @@ VM\AllocTracker.cpp
 
 1. http://blog.csdn.net/luoshengyang/article/details/41688319
 
+============再次更新
 
-
+2016/10/27
+最近看到微信开发分享的一篇文章，觉得不错，就贴在这
+[Android内存申请分析]{http://mp.weixin.qq.com/s?__biz=MzAwNDY1ODY2OQ==&mid=2649286327&idx=1&sn=b69513e3dfd1de848daefe03ab6719c2&scene=26#wechat_redirect}
