@@ -45,13 +45,21 @@ API：23
         msg.obj = intent;
         mServiceHandler.sendMessage(msg);
     }
-好了，我们看到了线索了，发送过来的消息，通过onStartCommand(）跑到了onStart，他里面调用了Handler去发送一个包含我们的Intent的消息。让我们去看下这个消息背后被怎么处理
 
-	@Override
-    public void handleMessage(Message msg) {
-        onHandleIntent((Intent)msg.obj);
-        stopSelf(msg.arg1);
+好了，我们看到了线索了，发送过来的消息，通过onStartCommand(）跑到了onStart，他里面调用了Handler去发送一个包含我们的Intent的消息。让我们去看下这个消息背后被怎么处理
+这个ServiceHandler是一个内部类，继承自handler，就是套一个壳，切换下线程而已。
+   private final class ServiceHandler extends Handler {
+        public ServiceHandler(Looper looper) {
+            super(looper);
+        }
+
+        @Override
+        public void handleMessage(Message msg) {
+            onHandleIntent((Intent)msg.obj);
+            stopSelf(msg.arg1);
+        }
     }
+ 
 我们看到他就直接调用我们的`onHandleIntent（）`，让我们去处理发送过来的Intent。
 处理完后调用`stopSelf（int id）；`，这个函数需要解释下，他和我们的`stopSelf（）`是有区别的，前者是判断下看是否还有没处理的消息，有就继续干活，没有才结束，后者就不管啦，死就死的。
  

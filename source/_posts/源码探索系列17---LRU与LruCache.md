@@ -56,6 +56,7 @@ categories: android
 
 
 # 起航
+
 看了这个基本的使用案例，我们也很熟悉的感觉到一件事情，我们常用的Universal-Image-Loader库好像也有这个的实现版本，我们使用它的时候的配置选项，里面有一个`LruMemoryCache`
 
 	ImageLoaderConfiguration config = new ImageLoaderConfiguration.Builder(this)
