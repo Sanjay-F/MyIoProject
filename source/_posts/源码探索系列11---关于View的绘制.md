@@ -522,3 +522,8 @@ onMeasure--> View.measure:
 ```
 
  另外我们的layout和draw的套路类似，就不细写.
+
+
+2. 关于requestLayout,postInvalidate,invalidate这几个函数
+ 这几个在我们刷新界面的时候经常用到，这三者的作用是，requestLayout要求重走整个绘制流程从measuer，layout和draw这3个步骤。
+ 然后postInvalidate是通过post一个刷新消息给到当前view的handle，再去调用invalidate函数去重新draw整个页面本身。因为invalidate是从ui线程直接调用去刷新自己本身的，所以对于不是ui线程时候想刷新就得靠这个函数。最后那个invalidate的意思前面说了，就是刷新自己，重新draw
