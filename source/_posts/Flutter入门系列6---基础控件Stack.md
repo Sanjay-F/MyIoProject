@@ -11,6 +11,7 @@ categories: flutter
 Flutter还提供了一个叫stack的轮子，他有点像安卓的RelatvieLayout，不过安卓被用得最少的，可能是绝对布局了。
 基本没派上用处。
 
+<!--more-->
 
 	import 'package:flutter/material.dart';
 	
@@ -97,10 +98,9 @@ Stack的布局行为，根据child是positioned还是non-positioned来区分。
 - fit：定义如何设置non-positioned节点尺寸，默认为loose。
   
   其中StackFit有如下几种：
-	•	loose：子节点宽松的取值，可以从min到max的尺寸；
-	•	expand：子节点尽可能的占用空间，取max尺寸；
-	•	passthrough：不改变子节点的约束条件。
+	?	loose：子节点宽松的取值，可以从min到max的尺寸；
+	?	expand：子节点尽可能的占用空间，取max尺寸；
+	?	passthrough：不改变子节点的约束条件。
 - overflow：超过的部分是否裁剪掉（clipped）。
  
  
-

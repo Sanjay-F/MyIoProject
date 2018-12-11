@@ -1,6 +1,6 @@
 title: Flutter入门系列2---基础状态widget使用介绍
 
-date: 2018-08-23 22:45:46
+date: 2018-01-23 22:45:46
 
 tags: [android,Flutter]
 
@@ -311,3 +311,6 @@ categories: Flutter
 	    );
 	  }
 	}
+
+
+这个手势还有很多别的回调方法,具体[点击这里查看](https://docs.flutter.io/flutter/widgets/GestureDetector-class.html)，感觉还是相比安卓厚道很多，不用再自己去弄那么多了。
