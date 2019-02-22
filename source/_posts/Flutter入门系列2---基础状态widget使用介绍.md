@@ -25,6 +25,9 @@ categories: Flutter
 
 ![没选中显示灰色背景](https://i.imgur.com/M2snL46.png)
 
+
+<!--more-->
+
 ## widget本身 自己管理
 
 不多说，先上模板代码
